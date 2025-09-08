@@ -23,3 +23,4 @@ Route::middleware('auth')->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
 });
+Route::get('/products', [ProductController::class, 'index']);
