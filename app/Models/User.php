@@ -13,7 +13,7 @@ class User extends Authenticatable implements JWTSubject
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-     public function getJWTIdentifier()
+    public function getJWTIdentifier()
     {
         return $this->getKey();
     }
@@ -22,6 +22,43 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    public function recentViews()
+    {
+        return $this->hasMany(RecentView::class);
+    }
+
+    public function vouchers()
+    {
+        return $this->hasMany(Voucher::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function sentMessages()
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function receivedMessages()
+    {
+        return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+
 
     /**
      * The attributes that are mass assignable.
@@ -32,6 +69,10 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'firstName',
         'lastName',
+        'secondName',
+        'dateNaissance',
+        'addresse',
+        'genre',
         'phone',
         'email',
         'password',
@@ -58,9 +99,5 @@ class User extends Authenticatable implements JWTSubject
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
-    }
-
-    public function orders(){
-        return $this->hasMany('App\Models\Order');
     }
 }

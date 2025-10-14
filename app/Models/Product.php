@@ -20,4 +20,8 @@ class Product extends Model
         'description',
         'reference',
     ];
+    public function image()
+    {
+        return $this->hasOne(ProductImage::class);
+    }
 }

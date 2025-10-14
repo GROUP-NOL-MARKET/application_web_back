@@ -1,5 +1,7 @@
+<?php
 
-<?
+namespace App\Models;
+
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
@@ -7,7 +9,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class OrderItem extends Model
 {
-    protected $fillable = ['order_id', 'product_id', 'quantity', 'price'];
+    protected $fillable = [
+        'order_id',
+        'product_id',
+        'product_name',
+        'product_category',
+        'description',
+        'quantity',
+        'img',
+        'price'
+    ];
 
     public function order()
     {
