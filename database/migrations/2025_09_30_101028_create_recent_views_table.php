@@ -17,6 +17,8 @@ return new class extends Migration
                 ->constrained()
                 ->onDelete('cascade');
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->dateTime('expires_at');
+            $table->dateTime('viewed_at');
             $table->timestamps();
         });
     }

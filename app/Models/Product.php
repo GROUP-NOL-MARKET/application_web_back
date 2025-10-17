@@ -17,6 +17,8 @@ class Product extends Model
         'sous_category',
         'disponibility',
         'image',
+        'quantity',
+        'selled',
         'description',
         'reference',
     ];

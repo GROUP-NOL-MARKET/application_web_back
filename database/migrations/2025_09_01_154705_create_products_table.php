@@ -20,6 +20,8 @@ return new class extends Migration {
             $table->text('description')->nullable();
             $table->string('disponibility');
             $table->string('image')->nullable();
+            $table->integer('quantity')->nullable();
+            $table->integer('selled')->nullable();
             $table->string('sous_category');
             $table->timestamps();
         });

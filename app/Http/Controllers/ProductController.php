@@ -9,7 +9,8 @@ class ProductController extends Controller
 {
     public function store(Request $request)
     {
-        $request->validate([
+        // Validation des champs
+        $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'reference' => 'nullable|string|max:255',
             'price' => 'required|numeric',
@@ -18,34 +19,25 @@ class ProductController extends Controller
             'category' => 'nullable|string|max:255',
             'sous_category' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'disponibility' => 'required|string|max:15',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $product = new Product();
-        $product->fill($request->except('images'));
-        $product->status = $request->input('status', 'published');
-        $product->save();
-
-        // Sauvegarde des images (si présentes)
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('products', 'public');
-                $product->images()->create(['path' => $path]);
-            }
+        //  Gestion de l'image
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('products', 'public');
+            $validatedData['image'] = $imagePath; // on ajoute le chemin dans les données validées
         }
 
-        return response()->json(['message' => 'Produit ajouté avec succès', 'product' => $product], 201);
+        // s Enregistrement du produit
+        $product = Product::create($validatedData);
+
+        return response()->json([
+            'message' => 'Produit créé avec succès',
+            'product' => $product
+        ]);
     }
 
-    public function edit(Request $request) {}
-    public function delete(Request $request, $id)
-    {
-        //
-    }
-    public function show(Request $request, $id)
-    {
-        //
-    }
     public function index(Request $request)
     {
         $query = Product::query();
@@ -54,19 +46,18 @@ class ProductController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%')
                 ->orWhere('reference', 'like', '%' . $request->search . '%');
         }
+
         if ($request->has('category') && $request->category !== '') {
             $query->where('category', $request->category);
         }
 
-        // 🔄 Tri
+        if ($request->has('sous_category') && $request->sous_category !== '') {
+            $query->where('sous_category', $request->sous_category);
+        }
+
         if ($request->sort === 'Nom') {
             $query->orderBy('name', 'asc');
         }
-        // } elseif ($request->sort === 'Meilleurs ventes') {
-        //     $query->orderBy('selled', 'desc');
-        // } elseif ($request->sort === 'Pires ventes') {
-        //     $query->orderBy('selled', 'asc');
-        // }
 
         $products = $query->paginate(12);
 
@@ -74,9 +65,19 @@ class ProductController extends Controller
             'data' => $products->items(),
             'total_pages' => $products->lastPage(),
             'total' => $products->total(),
-            // 'published' => Product::where('status', 'published')->count(),
-            // 'deleted' => Product::onlyTrashed()->count(),
-            // 'draft' => Product::where('status', 'draft')->count(),
         ]);
+    }
+
+    public function show($id)
+    {
+        return response()->json(Product::findOrFail($id));
+    }
+
+    public function delete($id)
+    {
+        $product = Product::findOrFail($id);
+        $product->delete();
+
+        return response()->json(['message' => 'Produit supprimé avec succès']);
     }
 }

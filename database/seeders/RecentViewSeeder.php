@@ -32,6 +32,8 @@ class RecentViewSeeder extends Seeder
             RecentView::create([
                 'user_id' => $users->random()->id,
                 'product_id' => $products->random()->id,
+                'expires_at' => $faker->dateTimeBetween('now', '14 days'),
+                'viewed_at' => $faker->dateTimeBetween('-10 days', 'now'),
                 'created_at' => $faker->dateTimeBetween('-10 days', 'now'),
             ]);
         }

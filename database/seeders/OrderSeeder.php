@@ -7,10 +7,12 @@ use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
 
+
 class OrderSeeder extends Seeder
 {
     public function run(): void
     {
+
         $user = User::first(); // Prend le premier utilisateur
         $products = Product::take(5)->get(); // Prend 5 produits existants
 
@@ -27,6 +29,7 @@ class OrderSeeder extends Seeder
                     'id' => $product->id,
                     'name' => $product->name ?? 'Produit inconnu',
                     'quantite' => rand(1, 3),
+                    'category' => $product->category ?? 'Aucun',
                     'price' => $product->price ?? 1000,
                     'status' => ['en_cours', 'livrée', 'annulée'][rand(0, 2)],
                 ];

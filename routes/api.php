@@ -13,6 +13,7 @@ use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\AdminStatsController;
 use App\Http\Controllers\RecentViewController;
+use App\Http\Controllers\ClientsStatsController;
 
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
@@ -28,6 +29,7 @@ Route::prefix('admin')->group(function () {
         Route::post('/logout', [AdminController::class, 'logout']);
         Route::get('/products', [ProductController::class, 'index']);
         Route::post('/products', [ProductController::class, 'store']);
+        Route::get('/clients/stats', [ClientsStatsController::class, 'index']);
     });
 });
 
