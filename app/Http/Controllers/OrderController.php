@@ -47,4 +47,24 @@ class OrderController extends Controller
         $order = Auth::user()->orders()->with('items.product')->findOrFail($id);
         return $order;
     }
+    public function dashboard()
+    {
+        // Récupération de toutes les commandes
+        $orders = Order::with('user')->latest()->get();
+
+        // Statistiques globales
+        $stats = [
+            'completed' => $orders->where('status', 'completed')->count(),
+            'confirmed' => $orders->where('status', 'confirmed')->count(),
+            'deleted'   => $orders->where('status', 'deleted')->count(),
+            'found'     => $orders->count(),
+            'product_views_rate' => 75, // Valeur temporaire
+            'cart_abandon_rate' => 25,  // Valeur temporaire
+        ];
+
+        return response()->json([
+            'stats' => $stats,
+            'orders' => $orders,
+        ]);
+    }
 }

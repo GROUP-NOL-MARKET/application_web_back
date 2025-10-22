@@ -6,10 +6,12 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\VoucherController;
+use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\AdminStatsController;
 use App\Http\Controllers\RecentViewController;
@@ -19,6 +21,10 @@ Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 Route::post('/logout', [UserController::class, 'logout']);
 Route::post('/profil', [UserController::class, 'profil']);
+Route::get('/products/search', [SearchController::class, 'search']);
+Route::get('/banniere', [BanniereController::class, 'getBanner']);
+Route::get('/bannieres', [BanniereController::class, 'index']);
+Route::get('/banniere/{id}', [BanniereController::class, 'show']);
 
 
 Route::prefix('admin')->group(function () {
@@ -30,6 +36,8 @@ Route::prefix('admin')->group(function () {
         Route::get('/products', [ProductController::class, 'index']);
         Route::post('/products', [ProductController::class, 'store']);
         Route::get('/clients/stats', [ClientsStatsController::class, 'index']);
+        Route::post('/banniere', [BanniereController::class, 'store']);
+        Route::get('/orders', [OrderController::class, 'dashboard']);
     });
 });
 
@@ -76,7 +84,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::get('/orders/status/{status}', [OrderController::class, 'filterByStatus']);
 
-    Route::post('/fedapay/webhook', [PaymentController::class, 'webhook']);
+    Route::post('/payment/create', [PaymentController::class, 'createTransaction']);
+    Route::post('/payment/webhook', [PaymentController::class, 'webhook'])->name('fedapay.callback');
 
     // Avis
     Route::apiResource('reviews', ReviewController::class)->only(['index', 'store']);
