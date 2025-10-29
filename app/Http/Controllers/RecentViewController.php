@@ -42,12 +42,15 @@ class RecentViewController extends Controller
 
         // Supprime les vues expirées automatiquement
         RecentView::where('expires_at', '<', Carbon::now())->delete();
+
+        // Récupère le nombre par page depuis la requête (par défaut 8)
+        $perPage = $request->query('per_page', 8);
+
         $views = RecentView::with('product')
             ->where('user_id', $user->id)
             ->orderByDesc('viewed_at')
-            ->take(20)
-            ->get();
+            ->paginate($perPage);
 
-        return response()->json(['data' => $views]);
+        return response()->json($views);
     }
 }

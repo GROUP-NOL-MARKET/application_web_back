@@ -31,6 +31,7 @@ class OrderSeeder extends Seeder
                     'quantite' => rand(1, 3),
                     'category' => $product->category ?? 'Aucun',
                     'price' => $product->price ?? 1000,
+                    'transaction_id' => 15,
                     'status' => ['en_cours', 'livrée', 'annulée'][rand(0, 2)],
                 ];
             })->toArray();
@@ -45,6 +46,7 @@ class OrderSeeder extends Seeder
                 'user_id' => $user->id,
                 'produits' => $selectedProducts, // JSON automatiquement casté
                 'total' => $total,
+                'transaction_id' => 15,
                 'status' => ['en_attente', 'en_cours', 'livrée'][rand(0, 2)],
             ]);
         }

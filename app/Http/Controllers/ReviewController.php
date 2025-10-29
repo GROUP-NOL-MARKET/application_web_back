@@ -14,26 +14,36 @@ class ReviewController extends Controller
         $reviews = Review::where('user_id', Auth::id())
             ->with('order')
             ->latest()
-            ->paginate(10);
+            ->paginate(5);
 
         return response()->json($reviews);
     }
 
+
     public function store(Request $request)
     {
         $request->validate([
+            'notation' => 'required|integer|min:1,max:5',
+            'appreciation' => 'required|string',
             'order_id' => 'required|exists:orders,id',
-            'comment' => 'required|string',
-            'rating' => 'required|integer|min:1|max:5',
         ]);
 
         $review = Review::create([
             'user_id' => Auth::id(),
+            'notation' => $request->notation,
+            'appreciation' => $request->appreciation,
             'order_id' => $request->order_id,
-            'comment' => $request->comment,
-            'rating' => $request->rating,
         ]);
 
-        return response()->json($review, 201);
+        return response()->json([
+            'message' => 'Avis enregistré avec succès',
+            'data' => $review,
+        ], 201);
+    }
+
+    public function show()
+    {
+        $avis = Review::with('user')->orderBy('created_at', 'desc')->get();
+        return response()->json($avis);
     }
 }

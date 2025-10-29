@@ -7,9 +7,11 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
@@ -25,6 +27,7 @@ Route::get('/products/search', [SearchController::class, 'search']);
 Route::get('/banniere', [BanniereController::class, 'getBanner']);
 Route::get('/bannieres', [BanniereController::class, 'index']);
 Route::get('/banniere/{id}', [BanniereController::class, 'show']);
+Route::post('/contact', [ContactController::class, 'store']);
 
 
 Route::prefix('admin')->group(function () {
@@ -35,9 +38,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/logout', [AdminController::class, 'logout']);
         Route::get('/products', [ProductController::class, 'index']);
         Route::post('/products', [ProductController::class, 'store']);
+        Route::get('/products/{id}', [ProductController::class, 'show']);
+        Route::put('/products/{id}', [ProductController::class, 'update']);
         Route::get('/clients/stats', [ClientsStatsController::class, 'index']);
         Route::post('/banniere', [BanniereController::class, 'store']);
         Route::get('/orders', [OrderController::class, 'dashboard']);
+        Route::get('/messages', [ContactController::class, 'index']);
+        Route::get('/avis', [ReviewController::class, 'show']);
     });
 });
 
@@ -57,6 +64,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/user/verify-otp', [UserController::class, 'verifyOtp']);
     Route::post('/user/reset-password', [UserController::class, 'resetPassword']);
     Route::post('/user/delete', [UserController::class, 'deleteUser']);
+    Route::post('/upload-profile', [ProfileController::class, 'uploadProfile']);
+
 
 
     Route::post('/products', [ProductController::class, 'create']);
@@ -85,7 +94,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/orders/status/{status}', [OrderController::class, 'filterByStatus']);
 
     Route::post('/payment/create', [PaymentController::class, 'createTransaction']);
-    Route::post('/payment/webhook', [PaymentController::class, 'webhook'])->name('fedapay.callback');
+
 
     // Avis
     Route::apiResource('reviews', ReviewController::class)->only(['index', 'store']);
@@ -96,3 +105,5 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/messages', [MessageController::class, 'store']);
     Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
 });
+
+Route::post('/payment/webhook', [PaymentController::class, 'webhook'])->name('payment.webhook');

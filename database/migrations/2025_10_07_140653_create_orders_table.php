@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade'); // clé étrangère vers users
             $table->json('produits')->nullable(); // pour stocker plusieurs produits
             $table->decimal('total', 10, 2); // total de la commande
+            $table->foreignId('transaction_id');
             $table->string('status')->default('en attente'); // statut par défaut
             $table->timestamps();
         });

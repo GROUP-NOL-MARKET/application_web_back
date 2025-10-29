@@ -12,8 +12,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_id')->constrained('orders')->onDelete('cascade');
-            $table->text('content');
-            $table->integer('rating')->default(5);
+            $table->text('appreciation');
+            $table->integer('notation')->default(5);
             $table->timestamps();
         });
     }

@@ -3,140 +3,224 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use FedaPay\FedaPay;
 use FedaPay\Transaction;
 use FedaPay\Customer;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
+    /**
+     * Crée une transaction FedaPay et une commande locale.
+     * Attendu du front: { amount, description, email, firstName, produits }.
+     */
     public function createTransaction(Request $request)
     {
         $validated = $request->validate([
             'amount' => 'required|numeric|min:100',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:255',
             'email' => 'required|email',
-            'firstName' => 'required|string',
+            'firstName' => 'required|string|max:120',
+            'produits' => 'nullable|array', // tableau d'objets {id, name, price, quantite}
         ]);
 
         try {
-            Log::info('FedaPay Key: ' . env('FEDAPAY_SECRET_KEY'));
-            //  Configuration FedaPay
+            // ---------- 1) Init SDK ----------
             FedaPay::setApiKey(env('FEDAPAY_SECRET_KEY'));
-            FedaPay::setEnvironment(config('fedapay.mode'));
+            // config('fedapay.mode') attend 'sandbox' ou 'live'
+            FedaPay::setEnvironment(config('fedapay.mode', 'sandbox'));
 
-            //  Création (ou récupération) du client
-            try {
-                $customer = Customer::create([
-                    'email' => $validated['email'],
-                    'firstname' => $validated['firstName'],
-                    'lastname' => $validated['firstName'],
-                ]);
-            } catch (\FedaPay\Error\Base $e) {
-                $body = $e->getJsonBody();
-                Log::error("Erreur FedaPay: " . $e->getMessage());
-                Log::error("Détails: " . json_encode($body));
+            // ---------- 2) Rechercher client local (recommencé) ----------
+            // OPTION RECOMMANDÉE: tu dois idéalement avoir une table locale liant user/email -> fedapay_id
+            // Si tu as un modèle LocalFedapayCustomer, utilise-le pour retrouver fedapay_id.
+            $fedapayCustomer = null;
+            $localCustomer = null;
 
-                // Si c’est une erreur d’email déjà existant
-                if (isset($body['errors']['email'])) {
-                    $customers = Customer::all();
-                    $customer = collect($customers)->firstWhere('email', $validated['email']);
-                    if (!$customer) {
-                        throw new \Exception("Impossible de récupérer le client existant");
+            // Si l'utilisateur est authentifié, chercher dans users (exemple)
+            if ($request->user()) {
+                //  stockes fedapay_id sur users: $request->user()->fedapay_id
+                // Adaptation: chercher dans users->fedapay_id si existant
+                if (isset($request->user()->fedapay_id) && $request->user()->fedapay_id) {
+                    try {
+                        $fedapayCustomer = Customer::retrieve($request->user()->fedapay_id);
+                    } catch (\Exception $e) {
+                        Log::warning("Impossible de récupérer customer FedaPay depuis user->fedapay_id: " . $e->getMessage());
                     }
-                    Log::info("Client existant récupéré: {$customer->id}");
-                } else {
-                    throw $e;
                 }
             }
 
+            // Si pas trouvé via local, on tente de retrouver parmi les clients FedaPay (fallback)
+            if (!$fedapayCustomer) {
+                // ATTENTION: Customer::where() n'existe pas dans le SDK
+                // On récupère tous les clients puis on filtre côté serveur (bon pour faible volume)
+                try {
+                    $customers = Customer::all();
+                    $existing = collect($customers)->firstWhere('email', $validated['email']);
+                    if ($existing) {
+                        $fedapayCustomer = $existing;
+                    }
+                } catch (\Exception $e) {
+                    Log::warning("Impossible de lister les customers FedaPay: " . $e->getMessage());
+                }
+            }
 
-            //  Création de la transaction
+            // Si toujours rien, on crée le customer chez FedaPay
+            if (!$fedapayCustomer) {
+                try {
+                    $fedapayCustomer = Customer::create([
+                        'email' => $validated['email'],
+                        'firstname' => $validated['firstName'],
+                        'lastname' => $validated['firstName'],
+                    ]);
+                    Log::info("Client FedaPay créé: {$fedapayCustomer->id}");
+                    // sauvegarde fedapay_id localement si tu as une table pour ça
+                } catch (\FedaPay\Error\Base $e) {
+                    // Si erreur "email already exists" (ou autre) : tenter de récupérer
+                    $body = $e->getJsonBody() ?? [];
+                    $message = strtolower($body['message'] ?? $e->getMessage());
+                    if (str_contains($message, 'email') && str_contains($message, 'exists')) {
+                        // fallback: récupérer tous et filtrer
+                        $customers = Customer::all();
+                        $existing = collect($customers)->firstWhere('email', $validated['email']);
+                        if ($existing) {
+                            $fedapayCustomer = $existing;
+                        } else {
+                            Log::error("Erreur création customer: email existant mais non retrouvé dans la liste");
+                            throw $e;
+                        }
+                    } else {
+                        Log::error("Erreur FedaPay lors création client: " . $e->getMessage());
+                        throw $e;
+                    }
+                }
+            }
+
+            if (!$fedapayCustomer || !isset($fedapayCustomer->id)) {
+                Log::error("Impossible d'obtenir un customer FedaPay valide");
+                return response()->json(['error' => 'Impossible d’obtenir le client FedaPay'], 500);
+            }
+
+            // ---------- 3) Création de la commande locale (avant la transaction) ----------
+            $order = new Order();
+            $order->user_id = $request->user()->id ?? null;
+
+            $order->produits = isset($validated['produits']) ? json_encode($validated['produits']) : null;
+            $order->total = $validated['amount'];
+            $order->status = 'pending'; // statut initial
+            $order->save();
+
+            // Si tu as une relation items() et un modèle OrderItem, tu peux créer les items
+            if (method_exists($order, 'items') && !empty($validated['produits'])) {
+                try {
+                    $items = array_map(function ($p) {
+                        return [
+                            'product_id' => $p['id'] ?? null,
+                            'name' => $p['name'] ?? null,
+                            'quantity' => $p['quantite'] ?? ($p['quantity'] ?? 1),
+                            'price' => $p['price'] ?? 0,
+                            'total' => (($p['price'] ?? 0) * ($p['quantite'] ?? ($p['quantity'] ?? 1))),
+                        ];
+                    }, $validated['produits']);
+                    // createMany attend un array d'array
+                    $order->items()->createMany($items);
+                } catch (\Exception $e) {
+                    Log::warning("Impossible de créer order items: " . $e->getMessage());
+                }
+            }
+
+            // ---------- 4) Création de la transaction FedaPay ----------
+            // S'ASSURER que le montant correspond exactement à la commande
+            $amount = (int) $validated['amount']; // FedaPay attend un entier en centimes? (selon config) — vérifier doc
+            if ($amount <= 0) {
+                Log::error("Montant invalide fourni pour la transaction: {$amount}");
+                return response()->json(['error' => 'Montant invalide'], 422);
+            }
+
             $transaction = Transaction::create([
-                'description' => $validated['description'] ?? 'Paiement commande',
-                'amount' => $validated['amount'],
+                'description' => $validated['description'] ?? "Paiement commande #{$order->id}",
+                'amount' => $amount,
                 'currency' => ['iso' => 'XOF'],
-                'callback_url' => route('fedapay.callback'),
-                'customer' => ['id' => $customer->id],
+                'callback_url' => route('payment.webhook'),
+                'customer' => ['id' => $fedapayCustomer->id],
             ]);
 
-            //  Enregistre la commande localement
-            $order = Order::create([
-                'user_id' => 1,
-                'user_email' => $validated['email'],
-                'transaction_id' => $transaction->id,
-                'status' => 'en attente',
-                'total' => $validated['amount'],
-            ]);
+            // Génération du token (url pour le widget)
+            $token = $transaction->generateToken();
 
-            //  Retour au frontend
+            // Sauvegarder l'id de transaction FedaPay sur la commande locale
+            $order->transaction_id = $transaction->id;
+            $order->save();
+
+            // ---------- 5) Réponse front ----------
             return response()->json([
-                'transaction_id' => $transaction->id,
-                'url' => $transaction->generateToken()->url,
+                'payment_url' => $token->url ?? null,
                 'order_id' => $order->id,
-                'customer_id' => $customer->id,
+                'transaction_id' => $transaction->id,
             ]);
         } catch (\FedaPay\Error\Base $e) {
-            Log::error("Erreur FedaPay: " . $e->getMessage());
-            Log::error("Détails: " . json_encode($e->getJsonBody()));
-            return response()->json(['error' => 'Impossible de créer la transaction'], 500);
+            Log::error("FedaPay Error: " . $e->getMessage(), ['body' => $e->getJsonBody() ?? null]);
+            return response()->json(['error' => 'Erreur FedaPay lors de la création du paiement.'], 500);
+        } catch (\Exception $e) {
+            Log::error("Erreur interne createTransaction: " . $e->getMessage());
+            return response()->json(['error' => 'Erreur interne serveur.'], 500);
         }
     }
+
+    /**
+     * Webhook endpoint pour FedaPay.
+     */
     public function webhook(Request $request)
     {
         try {
-            $data = $request->json()->all();
+            $payload = $request->json()->all();
+            Log::info('Webhook reçu FedaPay', $payload);
 
-            $eventName = $data['name'] ?? null;
-            $entity = $data['entity'] ?? null;
+            // Structure typique: ['name' => 'transaction.approved', 'entity' => [...]]
+            $eventName = $payload['name'] ?? null;
+            $entity = $payload['entity'] ?? null;
 
             if (!$eventName || !$entity) {
-                Log::error('Webhook FedaPay: Données incomplètes', $data);
-                return response()->json(['error' => 'Format invalide'], 400);
+                Log::error('Webhook FedaPay: données manquantes', $payload);
+                return response()->json(['error' => 'Webhook invalide'], 400);
             }
 
-            $transactionId = $entity['id'];
-            $status = $entity['status']; // pending, approved, canceled...
+            $transactionId = $entity['id'] ?? null;
+            $status = $entity['status'] ?? null;
 
-            // Recherche de la commande correspondante
+            if (!$transactionId) {
+                Log::error('Webhook FedaPay: transaction id absent', $payload);
+                return response()->json(['error' => 'transaction id absent'], 400);
+            }
+
             $order = Order::where('transaction_id', $transactionId)->first();
-
             if (!$order) {
-                Log::warning("Aucune commande trouvée pour la transaction $transactionId");
+                Log::warning("Webhook FedaPay: commande introuvable pour transaction {$transactionId}");
                 return response()->json(['message' => 'Commande introuvable'], 200);
             }
 
-            // Mise à jour du statut selon l'événement reçu
-            switch ($eventName) {
-                case 'transaction.created':
-                    $order->status = 'en attente';
-                    break;
+            // Mapping propre des statuts FedaPay -> statut local
+            $statusMap = [
+                'pending'    => 'en_attente',
+                'created'    => 'en_attente',
+                'approved'   => 'validée',
+                'declined'   => 'annulée',
+                'canceled'   => 'annulée',
+                'transferred' => 'transférée',
+            ];
 
-                case 'transaction.approved':
-                    $order->status = 'validée';
-                    break;
+            $newStatus = $statusMap[$status] ?? $order->status;
+            $order->status = $newStatus;
 
-                case 'transaction.declined':
-                case 'transaction.canceled':
-                    $order->status = 'annulée';
-                    break;
-
-                case 'transaction.transferred':
-                    $order->status = 'transférée';
-                    break;
-
-                default:
-                    Log::info("Événement ignoré : $eventName");
-                    break;
-            }
-
+            // Optionnel: stocker payload complet pour futur audit
+            $order->raw_webhook_payload = json_encode($payload);
             $order->save();
 
-            Log::info("Webhook traité avec succès pour transaction $transactionId — statut: {$order->status}");
+            Log::info("Webhook FedaPay traité: {$eventName} pour commande #{$order->id}, statut => {$order->status}");
 
-            // Toujours répondre 2xx sinon FedaPay retente
-            return response()->json(['status' => 'ok'], 200);
+            // Toujours répondre 2xx pour arrêter les retries FedaPay
+            return response()->json(['ok' => true], 200);
         } catch (\Exception $e) {
             Log::error("Erreur webhook FedaPay: " . $e->getMessage());
             return response()->json(['error' => 'Erreur interne'], 500);

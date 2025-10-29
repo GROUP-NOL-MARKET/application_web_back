@@ -25,8 +25,8 @@ class ReviewSeeder extends Seeder
             Review::create([
                 'user_id' => $users->random()->id,
                 'order_id' => $orders->random()->id,
-                'content' => $faker->sentence(10),
-                'rating' => $faker->numberBetween(3, 5),
+                'appreciation' => $faker->sentence(10),
+                'notation' => $faker->numberBetween(3, 5),
             ]);
         }
     }

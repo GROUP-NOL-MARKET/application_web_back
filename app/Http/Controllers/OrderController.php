@@ -15,11 +15,16 @@ class OrderController extends Controller
 
         $orders = Auth::user()
             ->orders()
-            ->with('items.product')
             ->paginate($perPage);
 
-        return response()->json($orders);
+        return response()->json([
+            'data' => $orders->items(),
+            'current_page' => $orders->currentPage(),
+            'last_page' => $orders->lastPage(),
+            'total' => $orders->total(),
+        ]);
     }
+
 
 
 

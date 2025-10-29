@@ -10,15 +10,20 @@ use Illuminate\Support\Facades\Auth;
 class FavoriteController extends Controller
 {
     // Récupérer tous les favoris de l’utilisateur connecté
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->get('per_page', 8); // nombre d'éléments par page
+        $page = $request->get('page', 1);
+
         $favorites = Auth::user()
             ->favorites()
-            ->with('product') // on charge les infos du produit
-            ->get();
+            ->with('product')
+            ->orderByDesc('created_at')
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json($favorites);
     }
+
 
     // Ajouter un produit aux favoris
     public function store(Request $request)

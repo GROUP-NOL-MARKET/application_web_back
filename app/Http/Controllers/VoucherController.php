@@ -13,16 +13,22 @@ class VoucherController extends Controller
     {
         // Nombre d'éléments par page (par défaut 5)
         $perPage = $request->get('per_page', 5);
+        $status = $request->get('status'); // "actif" ou "inactif"
 
-        // On récupère les bons paginés de l'utilisateur connecté
-        $vouchers = Auth::user()
-            ->vouchers()
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
+        $query = Auth::user()->vouchers()->orderByDesc('created_at');
 
-        // Laravel ajoute automatiquement les infos de pagination :
-        // current_page, last_page, per_page, total, data[], etc.
-        return response()->json($vouchers);
+        if ($status) {
+            $query->where('status', $status === 'actif' ? 'actif' : 'inactif');
+        }
+
+        $vouchers = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $vouchers->items(),
+            'current_page' => $vouchers->currentPage(),
+            'last_page' => $vouchers->lastPage(),
+            'total' => $vouchers->total(),
+        ]);
     }
 
     // Créer un bon d’achat
