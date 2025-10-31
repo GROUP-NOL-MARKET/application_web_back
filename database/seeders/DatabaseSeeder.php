@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             MessageSeeder::class,
             ProductSeeder::class,
             OrderSeeder::class,
+            PromoSeeder::class,
             VoucherSeeder::class,
             ReviewSeeder::class,
             FavoriteSeeder::class,

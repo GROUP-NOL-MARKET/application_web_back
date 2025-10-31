@@ -12,7 +12,7 @@ class AdminStatsController extends Controller
     {
 
         $revenus = Order::where('status', 'en_cours')->sum('total');
-        $pertes = Order::where('status', 'livrée')->sum('total');
+        $pertes = Order::where('status', 'annulée')->sum('total');
         $commandes = Order::count();
 
         $ventes_mensuelles = Order::selectRaw('MONTH(created_at) as mois, SUM(total) as total')

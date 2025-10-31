@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('promos', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->integer('initial_price')->unsigned();
+            $table->integer('new_price')->unsigned();
+            $table->boolean('active')->default(true);
+            $table->integer('pourcentage_vendu')->default(0);
+            $table->timestamp('start_at')->nullable();
+            $table->timestamp('end_at')->nullable();
             $table->timestamps();
         });
     }

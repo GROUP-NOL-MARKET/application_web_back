@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PromoController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ContactController;
@@ -45,13 +46,16 @@ Route::prefix('admin')->group(function () {
         Route::get('/orders', [OrderController::class, 'dashboard']);
         Route::get('/messages', [ContactController::class, 'index']);
         Route::get('/avis', [ReviewController::class, 'show']);
+        Route::post('/promos', [PromoController::class, 'store']);
+        Route::delete('/promos/{id}', [PromoController::class, 'destroy']);
+        Route::patch('/promos/{id}', [PromoController::class, 'update']);
     });
 });
 
 
-// Produits (publique sauf si tu veux protéger create/edit/delete)
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
+Route::get('/promos', [PromoController::class, 'index']);
 
 
 Route::middleware('jwt.auth')->group(function () {
