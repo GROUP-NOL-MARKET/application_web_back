@@ -63,8 +63,8 @@ class OrderController extends Controller
             'confirmed' => $orders->where('status', 'confirmed')->count(),
             'deleted'   => $orders->where('status', 'deleted')->count(),
             'found'     => $orders->count(),
-            'product_views_rate' => 75, // Valeur temporaire
-            'cart_abandon_rate' => 25,  // Valeur temporaire
+            'product_views_rate' => 75,
+            'cart_abandon_rate' => 25,
         ];
 
         return response()->json([

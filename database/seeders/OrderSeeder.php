@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
+use Faker\Factory as Faker;
 
 
 class OrderSeeder extends Seeder
@@ -13,6 +14,7 @@ class OrderSeeder extends Seeder
     public function run(): void
     {
 
+        $faker = Faker::create();
         $user = User::first(); // Prend le premier utilisateur
         $products = Product::take(5)->get(); // Prend 5 produits existants
 
@@ -46,7 +48,7 @@ class OrderSeeder extends Seeder
                 'user_id' => $user->id,
                 'produits' => $selectedProducts, // JSON automatiquement casté
                 'total' => $total,
-                'transaction_id' => 15,
+                'reference' => $faker->numberBetween(500, 1500),
                 'status' => ['en_attente', 'en_cours', 'livrée'][rand(0, 2)],
             ]);
         }

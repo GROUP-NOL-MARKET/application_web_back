@@ -1,0 +1,26 @@
+# Étape 1 : choisir une image PHP officielle
+FROM php:8.2-fpm
+
+# Étape 2 : installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    git curl libpng-dev libjpeg-dev libfreetype6-dev zip unzip
+
+# Étape 3 : installer les extensions PHP requises par Laravel
+RUN docker-php-ext-install pdo pdo_mysql gd
+
+# Étape 4 : installer Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Étape 5 : copier les fichiers de ton projet dans le conteneur
+WORKDIR /var/www
+COPY . .
+
+# Étape 6 : installer les dépendances PHP
+RUN composer install
+
+# Étape 7 : donner les bons droits
+RUN chown -R www-data:www-data /var/www \
+    && chmod -R 755 /var/www/storage
+
+# Étape 8 : lancer PHP-FPM
+CMD ["php-fpm"]
