@@ -1,6 +1,6 @@
 FROM php:8.2-fpm
 
-# Install system dependencies
+# Étape 2 : installer les dépendances système
 RUN apt-get update && apt-get install -y \
     git curl zip unzip \
     nginx supervisor \
@@ -30,15 +30,7 @@ RUN composer install --optimize-autoloader --no-interaction
 
 # Permissions
 RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage \
-    && chmod -R 755 /var/www/bootstrap/cache
+    && chmod -R 755 /var/www/storage
 
-# Copy Nginx config
-COPY nginx.conf /etc/nginx/sites-available/default
-
-# Supervisor config
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-EXPOSE 80
-
-CMD ["/usr/bin/supervisord"]
+# Étape 8 : lancer PHP-FPM
+CMD ["php-fpm"]
