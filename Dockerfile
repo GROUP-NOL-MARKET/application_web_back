@@ -24,10 +24,10 @@ RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage
 
 # Copy Nginx config
-COPY docker/nginx.conf /etc/nginx/sites-available/default
+COPY ./nginx.conf /etc/nginx/sites-available/default
 
 # Copy Supervisord config
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose HTTP port
 EXPOSE 80
