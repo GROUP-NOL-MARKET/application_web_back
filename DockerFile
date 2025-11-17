@@ -1,26 +1,41 @@
-# Étape 1 : choisir une image PHP officielle
 FROM php:8.2-fpm
 
-# Étape 2 : installer les dépendances système
+# Installer les dépendances système
 RUN apt-get update && apt-get install -y \
-    git curl libpng-dev libjpeg-dev libfreetype6-dev zip unzip
+    git curl zip unzip \
+    libpng-dev libjpeg-dev libfreetype6-dev \
+    libonig-dev libxml2-dev
 
-# Étape 3 : installer les extensions PHP requises par Laravel
-RUN docker-php-ext-install pdo pdo_mysql gd
+# Extensions PHP nécessaires pour Laravel
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
 
-# Étape 4 : installer Composer
+# Installer Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Étape 5 : copier les fichiers de ton projet dans le conteneur
+# Créer le dossier de travail
 WORKDIR /var/www
+
+# Copier d'abord composer.json pour optimiser le cache
+COPY composer.json composer.lock ./
+
+# Installer les dépendances PHP
+RUN composer install --no-dev --no-scripts --no-progress --no-interaction || true
+
+# Copier tout le reste du projet Laravel
 COPY . .
 
-# Étape 6 : installer les dépendances PHP
-RUN composer install
+# Installer les dépendances nécessaires à ext-zip
+RUN apt-get update && apt-get install -y \
+    libzip-dev zip unzip \
+    && docker-php-ext-install zip
 
-# Étape 7 : donner les bons droits
+
+# Exécuter à nouveau composer (cette fois avec les scripts)
+RUN composer install --optimize-autoloader --no-interaction
+
+# Donner les permissions à Laravel
 RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage
+    && chmod -R 755 /var/www/storage \
+    && chmod -R 755 /var/www/bootstrap/cache
 
-# Étape 8 : lancer PHP-FPM
 CMD ["php-fpm"]
