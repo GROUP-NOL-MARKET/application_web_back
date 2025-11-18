@@ -21,4 +21,11 @@ class AppServiceProvider extends ServiceProvider
     {
         //
     }
+
+    protected $listen = [
+        \App\Events\OrderPaid::class => [
+            \App\Listeners\SendOrderPaidEmail::class,
+        ],
+    ];
+
 }

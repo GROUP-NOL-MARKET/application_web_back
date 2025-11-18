@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use App\Events\OrderPaid;
+
 
 class MomoSandboxController extends Controller
 {
@@ -145,8 +147,15 @@ class MomoSandboxController extends Controller
 
         // Synchronisation commande + paiement
         if (in_array($status, ['success', 'completed'])) {
+
+            // Déjà payé ? On évite d’envoyer plusieurs mails
+            if ($order->status !== 'approved') {
+                event(new OrderPaid($order));
+            }
+
             $order->update(['status' => 'approved']);
             $payment->update(['status' => 'approved']);
+
         } elseif (in_array($status, ['failed', 'declined'])) {
             $order->update(['status' => 'declined']);
             $payment->update(['status' => 'declined']);
