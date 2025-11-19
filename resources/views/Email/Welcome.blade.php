@@ -46,7 +46,7 @@
         À très bientôt... L’équipe <b>Group Nol Market</b>.
     </p>
 
-    <a href="{{ url('/') }}" class="btn">
+    <a href="{{ url('/site') }}" class="btn">
         Achetez maintenant
     </a>
 
