@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MomoController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
@@ -18,8 +19,8 @@ use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\AdminStatsController;
 use App\Http\Controllers\RecentViewController;
-use App\Http\Controllers\ClientsStatsController;
 use App\Http\Controllers\MomoSandboxController;
+use App\Http\Controllers\ClientsStatsController;
 
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
@@ -61,7 +62,7 @@ Route::get('/promos', [PromoController::class, 'index']);
 
 Route::middleware('jwt.auth')->group(function () {
 
-    Route::post('/sandbox/payments/create', [MomoSandboxController::class, 'createPayment']);
+    Route::post('/momo/create', [MomoController::class, 'createPayment']);
     // Infos utilisateur
     Route::get('/user', [UserController::class, 'show']);   // récupérer infos user
     Route::put('/user/update', [UserController::class, 'update']); // mettre à jour infos user
@@ -110,10 +111,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/messages/{id}', [MessageController::class, 'show']);
     Route::post('/messages', [MessageController::class, 'store']);
     Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
-
-
-    Route::post('/sandbox/payments/create', [MomoSandboxController::class, 'createPayment']);
 });
 
 
-Route::get('/sandbox/payments/status/{reference}', [MomoSandboxController::class, 'getStatus']);
+Route::get('/momo/status/{reference}', [MomoController::class, 'getStatus']);
+Route::post('/momo/webhook', [MomoController::class, 'webhook']);
