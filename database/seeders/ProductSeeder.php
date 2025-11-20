@@ -90,7 +90,7 @@ class ProductSeeder extends Seeder
                         'quantity' => $faker->numberBetween(500, 1500),
                         'selled' => $faker->numberBetween(500, 1500),
                         'description' => $faker->sentence(12),
-                        'image' => $faker->imageUrl(640, 480, 'products', true, $category),
+                        'image' => "https://placehold.co/640x480/".substr(md5($category), 0, 6)."?text=".urlencode($category),
                     ]);
                 }
             }

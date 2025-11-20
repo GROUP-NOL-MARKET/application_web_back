@@ -11,7 +11,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\MessageController;
-use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\CoverImageController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VoucherController;
@@ -19,7 +19,6 @@ use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\AdminStatsController;
 use App\Http\Controllers\RecentViewController;
-use App\Http\Controllers\MomoSandboxController;
 use App\Http\Controllers\ClientsStatsController;
 
 Route::post('/register', [UserController::class, 'register']);
@@ -51,6 +50,10 @@ Route::prefix('admin')->group(function () {
         Route::post('/promos', [PromoController::class, 'store']);
         Route::delete('/promos/{id}', [PromoController::class, 'destroy']);
         Route::patch('/promos/{id}', [PromoController::class, 'update']);
+        Route::get('/cover-images', [CoverImageController::class, 'index']);
+        Route::post('/cover-images', [CoverImageController::class, 'store']);
+        Route::patch('/cover-images/{id}/toggle-active', [CoverImageController::class, 'toggleActive']);
+        Route::delete('/cover-images/{id}', [CoverImageController::class, 'destroy']);
     });
 });
 
