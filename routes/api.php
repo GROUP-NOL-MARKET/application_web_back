@@ -51,7 +51,7 @@ Route::prefix('admin')->group(function () {
         Route::delete('/promos/{id}', [PromoController::class, 'destroy']);
         Route::patch('/promos/{id}', [PromoController::class, 'update']);
         Route::get('/cover-images', [CoverImageController::class, 'index']);
-        Route::post('/cover-images', [CoverImageController::class, 'store']);
+        Route::post( '/cover-images', [CoverImageController::class, 'store']);
         Route::patch('/cover-images/{id}/toggle-active', [CoverImageController::class, 'toggleActive']);
         Route::delete('/cover-images/{id}', [CoverImageController::class, 'destroy']);
     });
@@ -119,3 +119,4 @@ Route::middleware('jwt.auth')->group(function () {
 
 Route::get('/momo/status/{reference}', [MomoController::class, 'getStatus']);
 Route::post('/momo/webhook', [MomoController::class, 'webhook']);
+Route::get('/cover-images', [CoverImageController::class, 'index']);

@@ -11,16 +11,31 @@ use Illuminate\Support\Facades\Validator;
 
 class CoverImageController extends Controller
 {
-    // GET /api/cover-images
+    // GET /api/admin/cover-images
     public function index()
     {
-        // retourne toutes images (ou uniquement actives si query ?active=1)
-        $images = CoverImage::orderBy('order', 'asc')->get()->map(function ($img) {
+
+         if (CoverImage::count() === 0) {
+        $defaults = [
+            'carousel_1.webp',
+            'carousel_2.avif',
+            'carousel_3.avif',
+        ];
+
+        foreach ($defaults as $file) {
+            CoverImage::create([
+                'path' => "defaults/$file",
+                'description' => "Image par défaut",
+                'active' => true,
+            ]);
+        }
+    }
+        
+        $images = CoverImage::orderBy('id', 'asc')->get()->map(function ($img) {
             return [
                 'id' => $img->id,
                 'description' => $img->description,
                 'active' => $img->active,
-                'order' => $img->order,
                 'url' => asset("storage/{$img->path}"),
             ];
         });
@@ -28,43 +43,47 @@ class CoverImageController extends Controller
         return response()->json(['data' => $images]);
     }
 
-    // POST /api/cover-images
+    // POST /api/admin/cover-images
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'images.*' => 'required|image|max:5120', // max 5MB
+            'image' => 'required|image|max:5120',
             'description' => 'nullable|string',
-            'active' => 'nullable|boolean',
+            'active' => 'nullable|boolean'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => 'Invalid data', 'errors' => $validator->errors()], 422);
         }
 
-        $uploaded = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                $filename = (string) Str::uuid() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('cover_images', $filename, 'public'); // storage/app/public/cover_images/...
-                $ci = CoverImage::create([
-                    'path' => $path,
-                    'description' => $request->input('description'),
-                    'active' => (bool) $request->input('active', false),
-                ]);
+        if ($request->hasFile('image')) {
 
-                $uploaded[] = [
+            $file = $request->file('image');
+
+            $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('cover_images', $filename, 'public');
+
+            $ci = CoverImage::create([
+                'path' => $path,
+                'description' => $request->description,
+                'active' => (bool) $request->active,
+            ]);
+
+            return response()->json([
+                'message' => 'Uploaded',
+                'data' => [
                     'id' => $ci->id,
                     'url' => asset("storage/{$ci->path}"),
                     'description' => $ci->description,
                     'active' => $ci->active,
-                ];
-            }
+                ]
+            ], 201);
         }
 
-        return response()->json(['message' => 'Uploaded', 'data' => $uploaded], 201);
+        return response()->json(['message' => 'No file uploaded'], 422);
     }
 
-    // PATCH /api/cover-images/{id}/toggle-active
+    // PATCH /api/admin/cover-images/{id}/toggle-active
     public function toggleActive($id)
     {
         $img = CoverImage::findOrFail($id);
@@ -80,14 +99,16 @@ class CoverImageController extends Controller
         ]);
     }
 
-    // DELETE /api/cover-images/{id}
+    // DELETE /api/admin/cover-images/{id}
     public function destroy($id)
     {
         $img = CoverImage::findOrFail($id);
-        // delete file
+
         Storage::disk('public')->delete($img->path);
         $img->delete();
 
         return response()->json(['message' => 'Deleted']);
     }
 }
+
+
