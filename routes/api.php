@@ -10,14 +10,15 @@ use App\Http\Controllers\PromoController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\FedapayController;
 use App\Http\Controllers\MessageController;
-use App\Http\Controllers\CoverImageController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\AdminStatsController;
+use App\Http\Controllers\CoverImageController;
 use App\Http\Controllers\RecentViewController;
 use App\Http\Controllers\ClientsStatsController;
 
@@ -51,7 +52,7 @@ Route::prefix('admin')->group(function () {
         Route::delete('/promos/{id}', [PromoController::class, 'destroy']);
         Route::patch('/promos/{id}', [PromoController::class, 'update']);
         Route::get('/cover-images', [CoverImageController::class, 'index']);
-        Route::post( '/cover-images', [CoverImageController::class, 'store']);
+        Route::post('/cover-images', [CoverImageController::class, 'store']);
         Route::patch('/cover-images/{id}/toggle-active', [CoverImageController::class, 'toggleActive']);
         Route::delete('/cover-images/{id}', [CoverImageController::class, 'destroy']);
     });
@@ -65,7 +66,7 @@ Route::get('/promos', [PromoController::class, 'index']);
 
 Route::middleware('jwt.auth')->group(function () {
 
-    Route::post('/momo/create', [MomoController::class, 'createPayment']);
+    // Route::post('/momo/create', [MomoController::class, 'createPayment']);
     // Infos utilisateur
     Route::get('/user', [UserController::class, 'show']);   // récupérer infos user
     Route::put('/user/update', [UserController::class, 'update']); // mettre à jour infos user
@@ -114,9 +115,14 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/messages/{id}', [MessageController::class, 'show']);
     Route::post('/messages', [MessageController::class, 'store']);
     Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
+
+
+    Route::post('/payments/fedapay', [FedapayController::class, 'createPayment']);
 });
 
 
-Route::get('/momo/status/{reference}', [MomoController::class, 'getStatus']);
-Route::post('/momo/webhook', [MomoController::class, 'webhook']);
+// Route::get('/momo/status/{reference}', [MomoController::class, 'getStatus']);
+// Route::post('/momo/webhook', [MomoController::class, 'webhook']);
 Route::get('/cover-images', [CoverImageController::class, 'index']);
+
+Route::post('/fedapay/webhook', [FedapayController::class, 'webhook'])->name('fedapay.webhook');
