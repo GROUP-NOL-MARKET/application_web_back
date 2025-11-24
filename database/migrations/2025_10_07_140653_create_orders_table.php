@@ -13,11 +13,25 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // clé étrangère vers users
-            $table->json('produits')->nullable(); // pour stocker plusieurs produits
-            $table->decimal('total', 10, 2); // total de la commande
+
+            // User
+            $table->foreignId('user_id')
+                ->constrained()
+                ->onDelete('cascade');
+
+            // Produits commandés (JSON)
+            $table->json('produits')->nullable();
+
+            // Total
+            $table->decimal('total', 10, 2);
+
+            // Référence unique
             $table->string('reference')->unique();
-            $table->string('status')->default('en attente'); // statut par défaut
+
+            // Status commande
+            $table->string('status')->default('en attente'); 
+            // en attente | payé | annulé
+
             $table->timestamps();
         });
     }
@@ -30,3 +44,5 @@ return new class extends Migration
         Schema::dropIfExists('orders');
     }
 };
+
+

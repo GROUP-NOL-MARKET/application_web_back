@@ -10,187 +10,347 @@ use Illuminate\Support\Facades\DB;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 
 class FedapayController extends Controller
 {
     protected $secret;
     protected $apiBase;
-    protected $mode;
 
     public function __construct()
     {
-        $this->secret = config('app.fedapay_secret', env('FEDAPAY_SECRET_KEY'));
-        $this->apiBase = env('FEDAPAY_API_BASE', 'https://sandbox-api.fedapay.com/v1'); // ✔ FIX
-        $this->mode = env('FEDAPAY_MODE', 'sandbox');
+        $this->secret = env('FEDAPAY_SECRET_KEY');
+        $this->apiBase = rtrim(env('FEDAPAY_API_BASE', 'https://sandbox-api.fedapay.com/v1'), '/');
     }
 
+    /**
+     * Helper: send request to FedaPay trying different Authorization formats.
+     * Returns Response object (Illuminate\Http\Client\Response)
+     */
+    protected function sendFedapayRequest(string $method, string $path, $payload = null): Response
+    {
+        // Ensure secret exists
+        if (empty($this->secret)) {
+            throw new \RuntimeException('FEDAPAY_SECRET_KEY is not set in environment.');
+        }
 
-    public function createPayment(Request $req)
+        $url = "{$this->apiBase}{$path}";
+
+        // prepare headers common
+        $commonHeaders = [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ];
+
+        // Try 1: Authorization: Token <secret>
+        $headersToken = array_merge($commonHeaders, ['Authorization' => 'Token ' . $this->secret]);
+        Log::info('Fedapay sending request (Token header)', ['method' => $method, 'url' => $url, 'headers' => $headersToken, 'payload' => $payload]);
+
+        $req = Http::withHeaders($headersToken);
+        $resp = $this->dispatchHttp($req, $method, $url, $payload);
+
+        // If unauthorized (401), try with Bearer (some accounts / SDK expect Bearer)
+        if ($resp->status() === 401) {
+            Log::warning('Fedapay Token auth got 401, retrying with Bearer', ['url' => $url, 'status' => $resp->status(), 'body' => $resp->body()]);
+            $headersBearer = array_merge($commonHeaders, ['Authorization' => 'Bearer ' . $this->secret]);
+            Log::info('Fedapay sending request (Bearer header)', ['method' => $method, 'url' => $url, 'headers' => $headersBearer, 'payload' => $payload]);
+
+            $req2 = Http::withHeaders($headersBearer);
+            $resp2 = $this->dispatchHttp($req2, $method, $url, $payload);
+
+            // return second response whether ok or not
+            return $resp2;
+        }
+
+        return $resp;
+    }
+
+    /**
+     * Dispatch HTTP request depending on method (post/get)
+     */
+    protected function dispatchHttp($httpClient, string $method, string $url, $payload = null): Response
+    {
+        $method = strtolower($method);
+        if ($method === 'post') {
+            return $httpClient->post($url, $payload);
+        } elseif ($method === 'get') {
+            return $httpClient->get($url);
+        } elseif ($method === 'put') {
+            return $httpClient->put($url, $payload);
+        } elseif ($method === 'delete') {
+            return $httpClient->delete($url);
+        } else {
+            throw new \InvalidArgumentException("Unsupported HTTP method: {$method}");
+        }
+    }
+
+    /**
+     * Front calls this to create a FedaPay transaction and get a checkout url.
+     * Body: { amount: number, products: [...], address: string (optional) }
+     */
+    public function createTransaction(Request $req)
     {
         $req->validate([
             'amount' => 'required|numeric|min:1',
+            'products' => 'required|array|min:1',
+            'address' => 'nullable|string'
         ]);
 
-        // ✔ JWT Auth correct
-        $user = JWTAuth::parseToken()->authenticate();
-        if (!$user) {
-            return response()->json(['user' => false, 'error' => 'Not authenticated'], 401);
+        // auth via JWT
+        try {
+            $user = JWTAuth::parseToken()->authenticate();
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'error' => 'Token invalide ou expiré'], 401);
+        }
+
+        // basic env checks
+        if (empty($this->secret)) {
+            Log::error('Fedapay missing secret key env');
+            return response()->json(['ok' => false, 'error' => 'Clé FedaPay non configurée (FEDAPAY_SECRET_KEY)'], 500);
+        }
+
+        if (empty($this->apiBase)) {
+            Log::error('Fedapay missing api base env');
+            return response()->json(['ok' => false, 'error' => 'Endpoint FedaPay non configuré (FEDAPAY_API_BASE)'], 500);
+        }
+
+        // quick sanity: if secret starts with sk_sandbox_ require sandbox url
+        if (strpos($this->secret, 'sk_sandbox_') === 0 && strpos($this->apiBase, 'sandbox-api.fedapay.com') === false) {
+            Log::warning('Fedapay secret looks sandbox but api base is not sandbox', ['secret' => substr($this->secret,0,20).'...', 'apiBase' => $this->apiBase]);
+            // not fatal, just warning
         }
 
         $reference = 'ORD-' . Str::upper(Str::random(8));
-        $amount = (int) round($req->amount); // ✔ montant entier
+        $amount = (int) round($req->amount); // XOF as integer (FCFA)
 
+        // Create a payment row (no order yet)
         DB::beginTransaction();
         try {
-
-            $order = Order::create([
-                'user_id'   => $user->id,
-                'total'     => $amount,
-                'reference' => $reference,
-                'status'    => 'pending',
-            ]);
-
-            $payment = $order->payment()->create([
+            $payment = \App\Models\Payment::create([
+                'order_id' => null,
                 'transaction_id' => null,
+                'phone' => $user->phone ?? null,
                 'amount' => $amount,
                 'status' => 'pending',
-                'phone'  => $user->phone ?? '',
-                'meta'   => null,
             ]);
-
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Order creation failed', ['error' => $e->getMessage()]);
-            return response()->json(['ok' => false, 'error' => 'Impossible de créer la commande'], 500);
+            Log::error('Payment row creation failed', ['err' => $e->getMessage()]);
+            return response()->json(['ok' => false, 'error' => 'Impossible de démarrer le paiement'], 500);
         }
 
+        $metadata = [
+            'reference' => $reference,
+            'local_payment_id' => $payment->id,
+            'user_id' => $user->id,
+            // store products as JSON string to be safe in metadata
+            'products' => json_encode($req->products),
+            'address' => $req->address ?? ''
+        ];
 
         $txPayload = [
             'description' => "Order {$reference}",
             'amount' => $amount,
-            'currency' => [
-                'iso' => 'XOF'
-            ],
+            'currency' => ['iso' => 'XOF'],
             'callback_url' => route('fedapay.webhook'),
             'customer' => [
-                'first_name' => $user->firstName ?? $user->name ?? 'Client',
-                'last_name'  => $user->lastName ?? '',
-                'email'      => $user->email ?? '',
-                'phone'      => $user->phone ?? ''
+                'firstname' => $user->firstName ?? $user->name ?? 'Client',
+                'lastname' => $user->lastName ?? '',
+                'email' => $user->email ?? '',
+                'phone' => $user->phone ?? ''
             ],
-            'metadata' => [
-                'order_reference' => $reference,
-                'local_order_id' => $order->id
-            ]
+            'metadata' => $metadata,
         ];
 
-        try {
+        Log::info('Fedapay createTransaction payload', ['payload' => $txPayload]);
 
-            // ✔ URL correcte
-            $createResp = Http::withToken($this->secret)
-                ->post("{$this->apiBase}/transactions", $txPayload);
+        try {
+            // 1) create transaction (tries Token then Bearer automatically)
+            $createResp = $this->sendFedapayRequest('post', '/transactions', $txPayload);
+
+            Log::info('Fedapay createResp', [
+                'status' => $createResp->status(),
+                'body' => $createResp->body()
+            ]);
+
+            if ($createResp->status() === 401) {
+                // auth failed even after retry — return helpful error
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'Erreur d\'authentification FedaPay (401). Vérifie ta clé (FEDAPAY_SECRET_KEY) et le endpoint (FEDAPAY_API_BASE).',
+                    'details' => $createResp->body()
+                ], 401);
+            }
 
             if ($createResp->failed()) {
-                $order->update(['status' => 'failed']);
                 $payment->update(['status' => 'failed', 'meta' => $createResp->body()]);
-                Log::error('FedaPay create transaction failed', ['resp' => $createResp->body()]);
-                return response()->json(['ok' => false, 'error' => 'Échec création transaction FedaPay'], 500);
+                return response()->json(['ok' => false, 'error' => 'Échec création transaction FedaPay', 'details' => $createResp->body()], 500);
             }
 
             $txData = $createResp->json();
-            $txId = $txData['id'] ?? null;
 
+            // id often lives in data.id
+            $txId = $txData['data']['id'] ?? $txData['id'] ?? null;
             if (!$txId) {
-                throw new \Exception("Missing transaction id from FedaPay");
+                Log::error('Fedapay create: missing id', ['resp' => $txData]);
+                $payment->update(['status' => 'failed', 'meta' => $txData]);
+                return response()->json(['ok' => false, 'error' => 'ID transaction manquant dans réponse FedaPay', 'details' => $txData], 500);
             }
 
-            // Save transaction
-            $payment->update(['transaction_id' => $txId]);
+            // save transaction id on payment
+            $payment->update(['transaction_id' => (string)$txId, 'meta' => $txData]);
 
-            // ✔ Checkout URL
-            $tokenResp = Http::withToken($this->secret)
-                ->post("{$this->apiBase}/transactions/{$txId}/token");
+            // 2) request token (checkout url) — also tries Token then Bearer
+            $tokenResp = $this->sendFedapayRequest('post', "/transactions/{$txId}/token", null);
+
+            Log::info('Fedapay tokenResp', ['status' => $tokenResp->status(), 'body' => $tokenResp->body()]);
+
+            if ($tokenResp->status() === 401) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'Erreur d\'authentification FedaPay lors génération token (401).',
+                    'details' => $tokenResp->body()
+                ], 401);
+            }
 
             if ($tokenResp->failed()) {
-                Log::error('FedaPay get token failed', ['resp' => $tokenResp->body()]);
-                return response()->json(['ok' => false, 'error' => 'Échec génération lien paiement'], 500);
+                $payment->update(['status' => 'failed', 'meta' => $tokenResp->body()]);
+                return response()->json(['ok' => false, 'error' => 'Échec génération lien paiement', 'details' => $tokenResp->body()], 500);
             }
 
             $tokenData = $tokenResp->json();
-            $checkoutUrl = $tokenData['url'] ?? ($tokenData['data']['url'] ?? null);
+            $checkoutUrl = $tokenData['token']['url'] ?? $tokenData['url'] ?? ($tokenData['data']['url'] ?? null);
+            $token = $tokenData['token']['key'] ?? $tokenData['token'] ?? ($tokenData['data']['token'] ?? null);
+
+            if (!$checkoutUrl) {
+                Log::error('Fedapay token missing url', ['resp' => $tokenData]);
+                return response()->json(['ok' => false, 'error' => 'Lien de paiement introuvable', 'details' => $tokenData], 500);
+            }
 
             return response()->json([
                 'ok' => true,
                 'checkout_url' => $checkoutUrl,
-                'transaction_id' => $txId,
-                'reference' => $reference
+                'transaction_id' => (string)$txId,
+                'payment_id' => $payment->id,
+                'reference' => $metadata['reference'],
+                'token' => $token
             ], 201);
+
         } catch (\Throwable $e) {
-            Log::error('FedaPay error', ['error' => $e->getMessage()]);
-            $order->update(['status' => 'failed']);
-            $payment->update(['status' => 'failed']);
-            return response()->json(['ok' => false, 'error' => 'Erreur serveur'], 500);
+            Log::error('Fedapay createTransaction exception', ['err' => $e->getMessage()]);
+            try { $payment->update(['status' => 'failed']); } catch (\Throwable $_) {}
+            return response()->json(['ok' => false, 'error' => 'Erreur serveur', 'message' => $e->getMessage()], 500);
         }
     }
 
-
-
-
-    /* Webhook identique à ton code, pas de correction nécessaire */
-
     /**
-     * Webhook endpoint to receive FedaPay notifications.
-     * Update order/payment status and dispatch your OrderPaid event.
+     * Webhook: FedaPay will call this when transaction status changes.
+     * We create the order and update payment when status is paid.
      */
     public function webhook(Request $req)
     {
         $raw = $req->getContent();
-        Log::info('Fedapay webhook received', ['headers' => $req->headers->all(), 'body' => $raw]);
+        Log::info('Fedapay webhook raw', ['headers' => $req->headers->all(), 'body' => $raw]);
 
         $payload = $req->json()->all();
+        $data = $payload['data'] ?? $payload['transaction'] ?? [];
 
-        // FedaPay envoie les informations d'événement -> cherche transaction id ou metadata
-        $txId = $payload['data']['id'] ?? $payload['id'] ?? null;
-        $status = strtolower($payload['event'] ?? ($payload['data']['status'] ?? ''));
+        $txId = $data['id'] ?? null;
+        $status = strtolower($payload['event'] ?? ($data['status'] ?? ''));
 
-        // try to find order via metadata or transaction id saved earlier
-        $order = null;
-        if (isset($payload['data']['metadata']['order_reference'])) {
-            $order = Order::where('reference', $payload['data']['metadata']['order_reference'])->first();
-        }
-        if (!$order && $txId) {
-            $order = Order::whereHas('payment', function ($q) use ($txId) {
-                $q->where('transaction_id', $txId);
-            })->first();
+        Log::info('Fedapay webhook parsed', ['txId' => $txId, 'status' => $status, 'data' => $data]);
+
+        // find payment by transaction_id
+        $payment = null;
+        if ($txId) {
+            $payment = \App\Models\Payment::where('transaction_id', (string)$txId)->first();
         }
 
-        if (!$order) {
-            Log::warning('Fedapay webhook: order not found', ['payload' => $payload]);
-            return response()->json(['ok' => false], 404);
+        // fallback: if metadata.local_payment_id is present, try find by id
+        if (!$payment && isset($data['metadata']['local_payment_id'])) {
+            $payment = \App\Models\Payment::find($data['metadata']['local_payment_id']);
         }
 
-        $payment = $order->payment;
-        // handle final statuses: 'paid', 'canceled', 'refused' etc (adapte selon payload)
-        // Exemple (à adapter si FedaPay retourne d'autres valeurs)
-        if (strpos($status, 'paid') !== false || strpos($status, 'success') !== false || $payload['data']['status'] === 'paid') {
-            if ($order->status !== 'approved') {
-                $order->update(['status' => 'approved']);
-                $payment->update(['status' => 'approved', 'meta' => $payload]);
-                event(new OrderPaid($order));
+        if (!$payment) {
+            Log::warning('Fedapay webhook: payment not found', ['payload' => $payload]);
+            return response()->json(['ok' => false, 'message' => 'payment not found'], 404);
+        }
+
+        $isPaid = (isset($data['status']) && in_array($data['status'], ['paid', 'approved', 'success']))
+            || stripos($status, 'paid') !== false
+            || stripos($status, 'success') !== false;
+
+        if ($isPaid) {
+            if (!$payment->order_id) {
+                $meta = $data['metadata'] ?? [];
+                $productsJson = $meta['products'] ?? null;
+                $products = [];
+                if ($productsJson) {
+                    $products = is_array($productsJson) ? $productsJson : json_decode($productsJson, true);
+                    if (!is_array($products))
+                        $products = [];
+                }
+
+                DB::beginTransaction();
+                try {
+                    $order = Order::create([
+                        'user_id' => $meta['user_id'] ?? $payment->user_id ?? null,
+                        'produits' => json_encode($products),
+                        'total' => $payment->amount,
+                        'reference' => $meta['reference'] ?? ('ORD-' . Str::upper(Str::random(8))),
+                        'status' => 'paid',
+                    ]);
+
+                    $payment->update(['order_id' => $order->id, 'status' => 'approved', 'meta' => $data]);
+
+                    DB::commit();
+
+                    event(new OrderPaid($order));
+                    Log::info('Order created from webhook', ['order_id' => $order->id, 'payment_id' => $payment->id]);
+                } catch (\Throwable $e) {
+                    DB::rollBack();
+                    Log::error('Error creating order in webhook', ['err' => $e->getMessage(), 'payload' => $payload]);
+                    return response()->json(['ok' => false, 'error' => 'Erreur création commande'], 500);
+                }
+            } else {
+                $payment->update(['status' => 'approved', 'meta' => $data]);
+            }
+
+            return response()->json(['ok' => true], 200);
+        }
+
+        $isFailed = (isset($data['status']) && in_array($data['status'], ['canceled', 'refused', 'failed']))
+            || stripos($status, 'cancel') !== false
+            || stripos($status, 'refused') !== false;
+
+        if ($isFailed) {
+            $payment->update(['status' => 'declined', 'meta' => $data]);
+            if ($payment->order_id) {
+                $order = Order::find($payment->order_id);
+                if ($order) $order->update(['status' => 'declined']);
             }
             return response()->json(['ok' => true], 200);
         }
 
-        if (strpos($status, 'cancel') !== false || strpos($status, 'refused') !== false || ($payload['data']['status'] ?? '') === 'refused') {
-            $order->update(['status' => 'declined']);
-            $payment->update(['status' => 'declined', 'meta' => $payload]);
-            Log::info('Fedapay payment declined', ['order' => $order->id, 'payload' => $payload]);
-            return response()->json(['ok' => true], 200);
-        }
-
-        // otherwise store metadata and keep pending
-        $payment->update(['meta' => $payload]);
+        $payment->update(['meta' => $data]);
         return response()->json(['ok' => true], 202);
+    }
+
+    /**
+     * Optional: check status by polling FedaPay (fallback)
+     */
+    public function checkStatus($transactionId)
+    {
+        try {
+            $resp = $this->sendFedapayRequest('get', "/transactions/{$transactionId}");
+            if ($resp->failed()) {
+                return response()->json(['ok' => false, 'error' => 'error from fedapay', 'details' => $resp->body()], 500);
+            }
+            return response()->json(['ok' => true, 'data' => $resp->json()]);
+        } catch (\Throwable $e) {
+            Log::error('checkStatus error', ['err' => $e->getMessage()]);
+            return response()->json(['ok' => false, 'error' => 'exception', 'message' => $e->getMessage()], 500);
+        }
     }
 }

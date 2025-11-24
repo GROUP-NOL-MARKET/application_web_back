@@ -16,4 +16,7 @@ Route::get('/run-migrations', function () {
     Artisan::call('migrate', ['--force' => true]);
     return 'Migrations run successfully!';
 });
+Route::get('/test-env', function () {
+    return env('TEST_ENV_VAR');
+});
 

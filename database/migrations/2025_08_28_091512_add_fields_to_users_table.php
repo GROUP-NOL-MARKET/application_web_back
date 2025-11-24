@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::table('users', function (Blueprint $table) {
             $table->string('lastName')->nullable();
             $table->string('firstName')->nullable();
-            $table->string('phone')->nullable();
+            $table->string('phone')->nullable()->unique();
             $table->string('profil')->nullable();
             $table->string('name')->nullable()->change();
             $table->date('dateNaissance')->nullable();

@@ -117,7 +117,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
 
 
-    Route::post('/payments/fedapay', [FedapayController::class, 'createPayment']);
+    Route::post('/payments/fedapay', [FedapayController::class, 'createTransaction']);
+    Route::get('/payments/status/{transactionId}', [FedapayController::class, 'checkStatus']);
 });
 
 

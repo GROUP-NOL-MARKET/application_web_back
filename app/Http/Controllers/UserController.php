@@ -15,46 +15,146 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
+use Twilio\Rest\Client;
 
 class UserController extends Controller
 {
+    public function sendWelcomeSms($phone)
+    {
+        $sid = env('TWILIO_SID');
+        $token = env('TWILIO_AUTH_TOKEN');
+        $from = env('TWILIO_PHONE');
+
+        $twilio = new Client($sid, $token);
+
+        $twilio->messages->create(
+            $phone,
+            [
+                "from" => $from,
+                "body" => "Bienvenue sur Nol Market 🛒 ! Votre inscription est confirmée."
+            ]
+        );
+    }
+
     public function register(Request $request)
     {
-        $validated = Validator::make($request->all(), [
-            "email" => "required|string|max:255|email|unique:users,email",
-            "password" => "required|string|min:8|confirmed",
-        ]);
-        if ($validated->fails()) {
-            return response()->json($validated->errors(), 422);
+
+
+        // Détection automatique du mode
+        $isEmail = $request->filled("email");
+        $isPhone = $request->filled("phone");
+
+        if (!$isEmail && !$isPhone) {
+            return response()->json([
+                "message" => "Veuillez fournir un email ou un numéro de téléphone."
+            ], 422);
         }
 
+        // VALIDATION DYNAMIQUE
+        $rules = [
+            "password" => "required|min:8|confirmed"
+        ];
+
+        if ($isEmail) {
+            $rules["email"] = "required|email|unique:users,email";
+        }
+
+        if ($isPhone) {
+            $rules["phone"] = "required|digits:10|unique:users,phone";
+        }
+
+        $validated = $request->validate($rules);
+
+        // if ($validated->fails()) {
+        //     return response()->json($validated->errors(), 422);
+        // }
+        $phone = null;
+
+        if ($isPhone) {
+            $rawPhone = $validated["phone"];
+
+            // Ajout automatique de l'indicatif
+            if (!str_starts_with($rawPhone, "229")) {
+                $phone = "+229" . $rawPhone;
+            } else {
+                $phone = $rawPhone;
+            }
+
+            // Validation unicité APRES formatage
+            if (User::where("phone", $phone)->exists()) {
+                return response()->json([
+                    "phone" => ["Ce numéro de téléphone est déjà utilisé."]
+                ], 422);
+            }
+        }
+
+        // Création utilisateur
         $user = User::create([
-            "email" => $request->email,
-            "password" => bcrypt($request->password),
+            "email" => $validated["email"] ?? null,
+            "phone" => $phone ?? null,
+            "password" => bcrypt($validated["password"]),
         ]);
 
+        // Génération du token
+
         $token = JWTAuth::fromUser($user);
-        Mail::to($user->email)->send(new WelcomeMail($user));
+
+        // if ($user->email) {
+        //     // L'utilisateur s'est inscrit avec un email
+        //     Mail::to($user->email)->send(new WelcomeMail($user));
+        // }
+
+        // if ($user->phone) {
+        //     // L'utilisateur s'est inscrit avec son numéro
+        //     $this->sendWelcomeSms($user->phone);
+        // }
+
 
         return response()->json([
             "message" => "Inscription réussie",
-            "user" => $user,
             "token" => $token,
-        ], 201);
+            "user" => $user
+        ]);
     }
-
     public function login(Request $request)
     {
-        $validated = Validator::make($request->all(), [
-            "email" => "required|string|max:255|email",
-            "password" => "required|string|max:255",
-        ]);
-        if ($validated->fails()) {
-            return response()->json($validated->errors(), 422);
+        $isEmail = $request->filled("email");
+        $isPhone = $request->filled("phone");
+
+        if (!$isEmail && !$isPhone) {
+            return response()->json([
+                "message" => "Veuillez fournir un email ou un numéro de téléphone."
+            ], 422);
+        }
+        $rules = [
+            "password" => "required|string|max:255"
+        ];
+
+        if ($isEmail) {
+            $rules["email"] = "required|email|unique:users,email";
         }
 
-        $user = User::where("email", $request["email"])->first();
+        if ($isPhone) {
+            $rules["phone"] = "required|digits:10|unique:users,phone";
+        }
 
+        $validated = $request->validate($rules);
+        $phone = null;
+        if ($isPhone) {
+            $rawPhone = $validated["phone"];
+            if (!str_starts_with($rawPhone, "229")) {
+                $phone = "+229" . $rawPhone;
+            } else {
+                $phone=$rawPhone;
+            }
+        }
+
+        if ($isEmail) {
+            $user = User::where("email", $request["email"])->first();
+        }
+        if ($isPhone) {
+            $user = User::where("phone", $phone)->first();
+        }
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['error' => 'Identifiants incorrects'], 404);
@@ -95,7 +195,7 @@ class UserController extends Controller
             ]);
 
             // Vérifier le mot de passe
-            if (! Hash::check($request->password, $user->password)) {
+            if (!Hash::check($request->password, $user->password)) {
                 return response()->json(['message' => 'Mot de passe incorrect.'], 422);
             }
 
