@@ -21,19 +21,25 @@ class UserController extends Controller
 {
     public function sendWelcomeSms($phone)
     {
-        $sid = env('TWILIO_SID');
-        $token = env('TWILIO_AUTH_TOKEN');
-        $from = env('TWILIO_PHONE');
+        // Format correct : retirer le + si AT n’en veut pas
+        $cleanPhone = ltrim($phone, "+");
 
-        $twilio = new Client($sid, $token);
-
-        $twilio->messages->create(
-            $phone,
-            [
-                "from" => $from,
-                "body" => "Bienvenue sur Nol Market 🛒 ! Votre inscription est confirmée."
-            ]
+        $AT = new \AfricasTalking\SDK\AfricasTalking(
+            env('AFRICASTALKING_USERNAME'),
+            env('AFRICASTALKING_API_KEY')
         );
+
+        $sms = $AT->sms();
+
+        try {
+            $sms->send([
+                'to' => $cleanPhone,
+                'message' => "Bienvenue sur Nol Market 🛒 ! Votre inscription est confirmée.",
+                'from' => env('AFRICASTALKING_FROM')
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("Erreur SMS Africa's Talking : " . $e->getMessage());
+        }
     }
 
     public function register(Request $request)
@@ -99,15 +105,15 @@ class UserController extends Controller
 
         $token = JWTAuth::fromUser($user);
 
-        // if ($user->email) {
-        //     // L'utilisateur s'est inscrit avec un email
-        //     Mail::to($user->email)->send(new WelcomeMail($user));
-        // }
+        if ($user->email) {
+            // L'utilisateur s'est inscrit avec un email
+            Mail::to($user->email)->send(new WelcomeMail($user));
+        }
 
-        // if ($user->phone) {
-        //     // L'utilisateur s'est inscrit avec son numéro
-        //     $this->sendWelcomeSms($user->phone);
-        // }
+        if ($user->phone) {
+            // L'utilisateur s'est inscrit avec son numéro
+            $this->sendWelcomeSms($user->phone);
+        }
 
 
         return response()->json([
@@ -118,48 +124,56 @@ class UserController extends Controller
     }
     public function login(Request $request)
     {
-        $isEmail = $request->filled("email");
-        $isPhone = $request->filled("phone");
-
-        if (!$isEmail && !$isPhone) {
+        // Vérifier qu'au moins email OU phone est présent
+        if (!$request->filled("email") && !$request->filled("phone")) {
             return response()->json([
                 "message" => "Veuillez fournir un email ou un numéro de téléphone."
             ], 422);
         }
+
+        // Validation dynamique
         $rules = [
             "password" => "required|string|max:255"
         ];
 
-        if ($isEmail) {
-            $rules["email"] = "required|email|unique:users,email";
+        if ($request->filled("email")) {
+            $rules["email"] = "required|email|exists:users,email";
         }
 
-        if ($isPhone) {
-            $rules["phone"] = "required|digits:10|unique:users,phone";
+        if ($request->filled("phone")) {
+            $rules["phone"] = "required|digits:10";
         }
 
         $validated = $request->validate($rules);
+
+        // Normalisation du numéro
         $phone = null;
-        if ($isPhone) {
+        if ($request->filled("phone")) {
             $rawPhone = $validated["phone"];
-            if (!str_starts_with($rawPhone, "229")) {
-                $phone = "+229" . $rawPhone;
-            } else {
-                $phone=$rawPhone;
-            }
+            $phone = str_starts_with($rawPhone, "229")
+                ? "+" . $rawPhone
+                : "+229" . $rawPhone;
         }
 
-        if ($isEmail) {
-            $user = User::where("email", $request["email"])->first();
+        // Récupération du user
+        $user = null;
+
+        if ($request->filled("email")) {
+            $user = User::where("email", $validated["email"])->first();
         }
-        if ($isPhone) {
+
+        if ($request->filled("phone")) {
             $user = User::where("phone", $phone)->first();
         }
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Identifiants incorrects'], 404);
+        // Vérification du mot de passe
+        if (!$user || !Hash::check($validated["password"], $user->password)) {
+            return response()->json([
+                'error' => 'Identifiants incorrects'
+            ], 404);
         }
 
+        // Génération du token JWT
         $token = JWTAuth::fromUser($user);
 
         return response()->json([

@@ -127,3 +127,4 @@ Route::middleware('jwt.auth')->group(function () {
 Route::get('/cover-images', [CoverImageController::class, 'index']);
 
 Route::post('/fedapay/webhook', [FedapayController::class, 'webhook'])->name('fedapay.webhook');
+Route::get('/payment/success', [FedapayController::class, 'redirectPayment'])->name('payment.success');
