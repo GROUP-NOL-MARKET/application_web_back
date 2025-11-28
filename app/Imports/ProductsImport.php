@@ -38,7 +38,7 @@ class ProductsImport implements ToModel, WithHeadingRow, WithChunkReading
             'category' => $row['category'] ?? null,
             'description' => $row['description'] ?? null,
             'disponibility' => $row['disponibility'] ?? null,
-            'image' => $imagePath, // 🔥 URL finale de l’image locale
+            'image' => $imagePath,
             'sous_category' => $row['sous_category'] ?? "Autre"
         ]);
     }

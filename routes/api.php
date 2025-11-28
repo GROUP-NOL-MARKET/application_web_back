@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PubliciteController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MomoController;
@@ -55,6 +56,10 @@ Route::prefix('admin')->group(function () {
         Route::post('/cover-images', [CoverImageController::class, 'store']);
         Route::patch('/cover-images/{id}/toggle-active', [CoverImageController::class, 'toggleActive']);
         Route::delete('/cover-images/{id}', [CoverImageController::class, 'destroy']);
+        Route::get('/publicite', [PubliciteController::class, 'index']);
+        Route::post('/publicite', [PubliciteController::class, 'store']);
+        Route::patch('/publicite/{id}/toggle-active', [PubliciteController::class, 'toggleActive']);
+        Route::delete('/publicite/{id}', [PubliciteController::class, 'destroy']);
     });
 });
 
@@ -125,6 +130,7 @@ Route::middleware('jwt.auth')->group(function () {
 // Route::get('/momo/status/{reference}', [MomoController::class, 'getStatus']);
 // Route::post('/momo/webhook', [MomoController::class, 'webhook']);
 Route::get('/cover-images', [CoverImageController::class, 'index']);
+Route::get('/publicite', [PubliciteController::class, 'index']);
 
 Route::post('/fedapay/webhook', [FedapayController::class, 'webhook'])->name('fedapay.webhook');
 Route::get('/payment/success', [FedapayController::class, 'redirectPayment'])->name('payment.success');
