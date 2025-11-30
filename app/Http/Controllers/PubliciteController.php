@@ -4,38 +4,36 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\CoverImage;
+use App\Models\Publicite;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
-class CoverImageController extends Controller
+class PubliciteController extends Controller
 {
     // GET /api/admin/cover-images
     public function index()
     {
 
-        if (CoverImage::count() === 0) {
+        if (Publicite::count() === 0) {
             $defaults = [
-                'couv-1.avif',
-                'couv-2.avif',
-                'couv-3.avif',
+                'carousel_1.webp',
+                'carousel_2.avif',
+                'carousel_3.avif',
             ];
 
             foreach ($defaults as $file) {
-                CoverImage::create([
+                Publicite::create([
                     'path' => "defaults/$file",
-                    'description' => "Image par défaut",
                     'active' => true,
                 ]);
             }
         }
 
-        $images = CoverImage::orderBy('id', 'asc')->get()->map(function ($img) {
+        $images = Publicite::orderBy('id', 'asc')->get()->map(function ($img) {
             return [
                 'id' => $img->id,
-                'description' => $img->description,
                 'active' => $img->active,
                 'url' => asset("storage/{$img->path}"),
             ];
@@ -47,15 +45,9 @@ class CoverImageController extends Controller
     // POST /api/admin/cover-images
     public function store(Request $request)
     {
-        // log pour debug (montrer ce que Laravel reçoit)
-        Log::info('CoverImages.store request files', $request->allFiles());
-        Log::info('CoverImages.store request inputs', $request->all());
 
         $validator = Validator::make($request->all(), [
-            // 'file' s'assure que c'est un fichier uploadé
-            // 'mimes' vérifie l'extension/MIME côté PHP (jpg,jpeg,png,webp,avif)
             'image' => 'required|file|mimes:jpg,jpeg,png,webp,avif|max:5120',
-            'description' => 'nullable|string',
             'active' => 'nullable|boolean'
         ]);
 
@@ -67,11 +59,10 @@ class CoverImageController extends Controller
             $file = $request->file('image');
 
             $filename = (string) Str::uuid() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('cover_images', $filename, 'public');
+            $path = $file->storeAs('publicite', $filename, 'public');
 
-            $ci = CoverImage::create([
+            $ci = Publicite::create([
                 'path' => $path,
-                'description' => $request->description,
                 'active' => (bool) $request->active,
             ]);
 
@@ -80,7 +71,6 @@ class CoverImageController extends Controller
                 'data' => [
                     'id' => $ci->id,
                     'url' => asset("storage/{$ci->path}"),
-                    'description' => $ci->description,
                     'active' => $ci->active,
                 ]
             ], 201);
@@ -91,7 +81,7 @@ class CoverImageController extends Controller
     // PATCH /api/admin/cover-images/{id}/toggle-active
     public function toggleActive($id)
     {
-        $img = CoverImage::findOrFail($id);
+        $img = Publicite::findOrFail($id);
         $img->active = !$img->active;
         $img->save();
 
@@ -107,7 +97,7 @@ class CoverImageController extends Controller
     // DELETE /api/admin/cover-images/{id}
     public function destroy($id)
     {
-        $img = CoverImage::findOrFail($id);
+        $img = Publicite::findOrFail($id);
 
         Storage::disk('public')->delete($img->path);
         $img->delete();
