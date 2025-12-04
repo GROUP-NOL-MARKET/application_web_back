@@ -1,4 +1,3 @@
-
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -15,6 +14,9 @@ return new class extends Migration
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
 
+            $table->uuid('reference_id')->unique();
+            $table->unsignedBigInteger('user_id');
+
             // Peut être lié ensuite à une commande
             $table->foreignId('order_id')
                 ->nullable()
@@ -26,6 +28,8 @@ return new class extends Migration
 
             // Téléphone utilisé pour le paiement
             $table->string('phone')->nullable();
+
+            $table->string('method')->nullable();
 
             // Montant payé
             $table->decimal('amount', 10, 2);

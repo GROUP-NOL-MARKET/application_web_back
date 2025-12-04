@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://application-web-front-three.vercel.app'],
+    'allowed_origins' => ['http://localhost:3000','https://application-web-front-three.vercel.app'],
 
     'allowed_origins_patterns' => [],
 

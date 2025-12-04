@@ -37,7 +37,5 @@ class RecentViewSeeder extends Seeder
                 'created_at' => $faker->dateTimeBetween('-10 days', 'now'),
             ]);
         }
-
-        $this->command->info(' 20 vues récentes ont été ajoutées avec succès.');
     }
 }

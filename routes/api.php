@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\PubliciteController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MomoController;
@@ -12,12 +11,16 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\FedapayController;
+use App\Http\Controllers\KkiapayController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\MoovmoneyController;
+use App\Http\Controllers\PubliciteController;
 use App\Http\Controllers\AdminStatsController;
 use App\Http\Controllers\CoverImageController;
 use App\Http\Controllers\RecentViewController;
@@ -60,6 +63,8 @@ Route::prefix('admin')->group(function () {
         Route::post('/publicite', [PubliciteController::class, 'store']);
         Route::patch('/publicite/{id}/toggle-active', [PubliciteController::class, 'toggleActive']);
         Route::delete('/publicite/{id}', [PubliciteController::class, 'destroy']);
+        Route::get('/payments', [PaymentController::class, 'index']);
+        Route::post('/commandes/{id}/status', [OrderController::class, 'updateStatus']);
     });
 });
 
@@ -67,11 +72,16 @@ Route::prefix('admin')->group(function () {
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/promos', [PromoController::class, 'index']);
+Route::get('/products/limited', [ProductController::class, 'limited']);
+
 
 
 Route::middleware('jwt.auth')->group(function () {
 
-    // Route::post('/momo/create', [MomoController::class, 'createPayment']);
+    Route::post("/momo/pay", [MomoController::class, "pay"]);
+    Route::post('/moov/pay', [MoovmoneyController::class, 'pay']);
+
+
     // Infos utilisateur
     Route::get('/user', [UserController::class, 'show']);   // récupérer infos user
     Route::put('/user/update', [UserController::class, 'update']); // mettre à jour infos user
@@ -131,6 +141,14 @@ Route::middleware('jwt.auth')->group(function () {
 // Route::post('/momo/webhook', [MomoController::class, 'webhook']);
 Route::get('/cover-images', [CoverImageController::class, 'index']);
 Route::get('/publicite', [PubliciteController::class, 'index']);
+Route::post("/momo/callback", [MomoController::class, "callback"]);
+
+
+Route::post('/moov/callback', [MoovmoneyController::class, 'callback']);
+Route::get('/momo/status/{reference}', [MomoController::class, 'checkStatus']);
+
 
 Route::post('/fedapay/webhook', [FedapayController::class, 'webhook'])->name('fedapay.webhook');
 Route::get('/payment/success', [FedapayController::class, 'redirectPayment'])->name('payment.success');
+
+Route::post('/paiement/kkiapay/callback', [KkiapayController::class, 'callback']);

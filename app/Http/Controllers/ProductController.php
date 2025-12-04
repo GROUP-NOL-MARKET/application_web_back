@@ -67,7 +67,7 @@ class ProductController extends Controller
             $query->orderBy('name', 'asc');
         }
 
-        $products = $query->paginate(12);
+        $products = $query->paginate(24);
 
         return response()->json([
             'data' => $products->items(),
@@ -75,6 +75,33 @@ class ProductController extends Controller
             'total' => $products->total(),
         ]);
     }
+
+
+    /**
+     * Récupérer un nombre limité de produits d'une sous-catégorie
+     */
+    public function limited(Request $request)
+    {
+
+        $category = $request->query('category', null);
+        $limit = intval($request->query('limit', 10));
+
+        if (!$category) {
+            return response()->json([
+                'message' => "Le paramètre 'category' est requis."
+            ], 400);
+        }
+
+        $products = Product::whereRaw('LOWER(category) = ?', [strtolower($category)])
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'data' => $products
+        ]);
+    }
+
+
 
     /**
      * Afficher un produit
@@ -89,7 +116,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // ✅ Validation
+        // Validation
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'reference' => 'nullable|string|max:255',
@@ -105,7 +132,7 @@ class ProductController extends Controller
 
         $product = Product::findOrFail($id);
 
-        // ✅ Si une nouvelle image est envoyée
+        // Si une nouvelle image est envoyée
         if ($request->hasFile('image')) {
             // Supprime l’ancienne image si elle existe
             if ($product->image && Storage::disk('public')->exists($product->image)) {
@@ -116,7 +143,7 @@ class ProductController extends Controller
             $validatedData['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // ✅ Mise à jour du produit
+        // Mise à jour du produit
         $product->update($validatedData);
 
         return response()->json([

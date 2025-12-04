@@ -34,7 +34,7 @@ class OrderSeeder extends Seeder
                     'category' => $product->category ?? 'Aucun',
                     'price' => $product->price ?? 1000,
                     'transaction_id' => 15,
-                    'status' => ['en_cours', 'livrée', 'annulée'][rand(0, 2)],
+                    'status' => ['en cours', 'livree', 'annulee', 'validee'][rand(0, 2)],
                 ];
             })->toArray();
 
@@ -46,13 +46,11 @@ class OrderSeeder extends Seeder
             // Crée la commande
             Order::create([
                 'user_id' => $user->id,
-                'produits' => $selectedProducts, // JSON automatiquement casté
+                'produits' => $selectedProducts,
                 'total' => $total,
                 'reference' => $faker->numberBetween(500, 1500),
-                'status' => ['en_attente', 'en_cours', 'livrée'][rand(0, 2)],
+                'status' => ['en attente', 'en cours', 'livree', 'annulee'][rand(0, 2)],
             ]);
         }
-
-        $this->command->info('✅ Commandes créées avec succès avec produits JSON !');
     }
 }

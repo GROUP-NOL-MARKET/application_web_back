@@ -30,15 +30,15 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('Nol229'),
         ]);
 
-        $this->call([
-            MessageSeeder::class,
-            ProductSeeder::class,
-            OrderSeeder::class,
-            PromoSeeder::class,
-            VoucherSeeder::class,
-            ReviewSeeder::class,
-            FavoriteSeeder::class,
-            RecentViewSeeder::class,
-        ]);
+        // $this->call([
+        //     MessageSeeder::class,
+        //     ProductSeeder::class,
+        //     OrderSeeder::class,
+        //     PromoSeeder::class,
+        //     VoucherSeeder::class,
+        //     ReviewSeeder::class,
+        //     FavoriteSeeder::class,
+        //     RecentViewSeeder::class,
+        // ]);
     }
 }

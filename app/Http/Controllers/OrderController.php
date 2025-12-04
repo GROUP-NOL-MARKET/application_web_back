@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Models\Order;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 
 class OrderController extends Controller
 {
@@ -24,8 +25,6 @@ class OrderController extends Controller
             'total' => $orders->total(),
         ]);
     }
-
-
 
 
     public function create(Request $request)
@@ -59,9 +58,9 @@ class OrderController extends Controller
 
         // Statistiques globales
         $stats = [
-            'completed' => $orders->where('status', 'completed')->count(),
-            'confirmed' => $orders->where('status', 'confirmed')->count(),
-            'deleted'   => $orders->where('status', 'deleted')->count(),
+            'completed' => $orders->where('status', 'livree')->count(),
+            'confirmed' => $orders->where('status', 'validee')->count(),
+            'deleted'   => $orders->where('status', 'annulee')->count(),
             'found'     => $orders->count(),
             'product_views_rate' => 75,
             'cart_abandon_rate' => 25,
@@ -71,5 +70,22 @@ class OrderController extends Controller
             'stats' => $stats,
             'orders' => $orders,
         ]);
+    }
+    public function updateStatus($id, Request $request)
+    {
+        $order = Order::findOrFail($id);
+
+        $order->status = $request->status;
+        $order->save();
+
+        if ($order) {
+            $payment = Payment::where('order_id', $order->id)->first();
+            if ($payment) {
+                $payment->status = $request->status;
+                $payment->save();
+            }
+        }
+
+        return response()->json(['message' => 'Statut mis à jour']);
     }
 }
