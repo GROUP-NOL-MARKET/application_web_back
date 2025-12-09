@@ -31,15 +31,18 @@ class ProductsImport implements ToModel, WithHeadingRow, WithChunkReading
         }
 
         return new Product([
-            'reference' => $row['reference'] ?? null,
-            'name' => $row['name'] ?? null,
-            'family' => $row['family'] ?? null,
+            'reference' => $row['reference'],
+            'name' => $row['name'],
+            'family' => $row['family'],
             'price' => $price,
-            'category' => $row['category'] ?? null,
+            'quantity' => $row['quantity'],
+            'category' => $row['category'],
             'description' => $row['description'] ?? null,
-            'disponibility' => $row['disponibility'] ?? null,
+            'disponibility' => $row['disponibility'],
+            'selled' => $row['selled'],
             'image' => $imagePath,
-            'sous_category' => $row['sous_category'] ?? "Autre"
+            'sous_category' => $row['sous_category'] ?? "Autre",
+            'reste' => $row['reste']
         ]);
     }
 

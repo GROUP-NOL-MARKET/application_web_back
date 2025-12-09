@@ -19,6 +19,7 @@ class Product extends Model
         'image',
         'quantity',
         'selled',
+        'reste',
         'description',
         'reference',
     ];

@@ -31,6 +31,9 @@ class ProductController extends Controller
         if ($request->hasFile('image')) {
             $validatedData['image'] = $request->file('image')->store('products', 'public');
         }
+        $validatedData['selled'] === 0;
+
+        $validatedData['reste'] === 0;
 
         // Création du produit
         $product = Product::create($validatedData);
@@ -82,7 +85,6 @@ class ProductController extends Controller
      */
     public function limited(Request $request)
     {
-
         $category = $request->query('category', null);
         $limit = intval($request->query('limit', 10));
 
@@ -92,7 +94,7 @@ class ProductController extends Controller
             ], 400);
         }
 
-        $products = Product::whereRaw('LOWER(category) = ?', [strtolower($category)])
+        $products = Product::whereRaw('LOWER(category) LIKE ?', ['%' . strtolower($category) . '%'])
             ->limit($limit)
             ->get();
 
@@ -100,6 +102,7 @@ class ProductController extends Controller
             'data' => $products
         ]);
     }
+
 
 
 
@@ -142,6 +145,11 @@ class ProductController extends Controller
             // Stocke la nouvelle image
             $validatedData['image'] = $request->file('image')->store('products', 'public');
         }
+
+        $quantity = $validatedData['quantity'] ?? $product->quantity;
+        $selled = $product->selled ?? 0;
+
+        $validatedData['reste'] = $quantity - $selled;
 
         // Mise à jour du produit
         $product->update($validatedData);

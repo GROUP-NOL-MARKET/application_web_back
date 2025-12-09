@@ -72,7 +72,7 @@ Route::prefix('admin')->group(function () {
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/promos', [PromoController::class, 'index']);
-Route::get('/products/limited', [ProductController::class, 'limited']);
+Route::get('/products-category/limited', [ProductController::class, 'limited']);
 
 
 
@@ -135,6 +135,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/payments/fedapay', [FedapayController::class, 'createTransaction']);
     Route::get('/payments/status/{transactionId}', [FedapayController::class, 'checkStatus']);
 });
+
+Route::get('/reviews', [ReviewController::class, 'show']);
 
 
 // Route::get('/momo/status/{reference}', [MomoController::class, 'getStatus']);

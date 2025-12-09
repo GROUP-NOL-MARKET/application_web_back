@@ -15,14 +15,15 @@ return new class extends Migration {
             $table->string('reference');
             $table->string('name');
             $table->string('family');
-            $table->decimal('price', 10, 2)->nullable();
+            $table->decimal('price', 10, 2);
             $table->string('category');
             $table->text('description')->nullable();
             $table->string('disponibility');
-            $table->string('image')->nullable();
-            $table->integer('quantity')->nullable();
-            $table->integer('selled')->nullable();
+            $table->string('image');
+            $table->integer('quantity');
+            $table->integer('selled');
             $table->string('sous_category');
+            $table->integer('reste');
             $table->timestamps();
         });
     }

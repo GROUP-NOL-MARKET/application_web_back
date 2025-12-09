@@ -20,7 +20,7 @@ class OrderPaidAdmin extends Mailable
 
     public function build()
     {
-        return $this->subject("Nouvelle commande payée : {$this->order->reference}")
-                    ->markdown('emails.order-paid-admin');
+        return $this->subject("Nouvelle commande payée #" . $this->order->id)
+            ->markdown('emails.admin.orderPaid');
     }
 }
