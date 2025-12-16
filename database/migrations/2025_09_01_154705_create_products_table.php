@@ -19,7 +19,7 @@ return new class extends Migration {
             $table->string('category');
             $table->text('description')->nullable();
             $table->string('disponibility');
-            $table->string('image');
+            $table->string('image')->nullable();
             $table->integer('quantity');
             $table->integer('selled');
             $table->string('sous_category');

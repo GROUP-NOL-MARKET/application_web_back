@@ -10,7 +10,7 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'produits', 'reference', 'total', 'status'];
+    protected $fillable = ['user_id', 'produits','refund_requested', 'reference', 'total', 'status'];
 
     public function user()
     {
@@ -32,5 +32,8 @@ class Order extends Model
         return $this->hasOne(Payment::class);
     }
 
-    protected $casts = ['produits' => 'array'];
+    protected $casts = ['produits' => 'array','refund_requested' => 'boolean',];
+    
+
+    
 }

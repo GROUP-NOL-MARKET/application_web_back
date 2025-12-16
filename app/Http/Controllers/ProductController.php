@@ -130,7 +130,7 @@ class ProductController extends Controller
             'sous_category' => 'required|string|max:255',
             'description' => 'nullable|string',
             'disponibility' => 'required|string|max:15',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image' => 'nullable|file|mimes:jpeg,png,jpg,webp,avif|max:2048',
         ]);
 
         $product = Product::findOrFail($id);

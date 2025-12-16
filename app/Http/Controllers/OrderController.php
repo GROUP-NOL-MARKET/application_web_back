@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Order;
+use App\Models\Message;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -60,8 +61,8 @@ class OrderController extends Controller
         $stats = [
             'completed' => $orders->where('status', 'livree')->count(),
             'confirmed' => $orders->where('status', 'validee')->count(),
-            'deleted'   => $orders->where('status', 'annulee')->count(),
-            'found'     => $orders->count(),
+            'deleted' => $orders->where('status', 'annulee')->count(),
+            'found' => $orders->count(),
             'product_views_rate' => 75,
             'cart_abandon_rate' => 25,
         ];
@@ -88,4 +89,55 @@ class OrderController extends Controller
 
         return response()->json(['message' => 'Statut mis à jour']);
     }
+
+    public function cancel(Order $order)
+    {
+
+        if ($order->status !== 'validee') {
+            return response()->json([
+                'message' => 'Cette commande ne peut plus être annulée'
+            ], 400);
+        }
+
+        $order->update([
+            'status' => 'annulee'
+        ]);
+
+        return response()->json([
+            'message' => 'Commande annulée avec succès'
+        ]);
+    }
+    public function requestRefund(Order $order)
+    {
+        // Sécurité
+        if ($order->status !== 'annulee') {
+            return response()->json([
+                'message' => 'Le remboursement est possible uniquement pour une commande annulée'
+            ], 400);
+        }
+
+        if ($order->refund_requested) {
+            return response()->json([
+                'message' => 'Une demande de remboursement a déjà été envoyée'
+            ], 400);
+        }
+
+        // Marquer la commande
+        $order->update([
+            'refund_requested' => true
+        ]);
+
+        // Créer le message admin
+        Message::create([
+            'user_id' => \Auth::user()->id,
+            'title' => "Remboursement demandé",
+            'sender' => 'Système',
+            'content' => "Demande de remboursement pour la commande n°{$order->reference} annulée",
+        ]);
+
+        return response()->json([
+            'message' => 'Demande de remboursement envoyée'
+        ]);
+    }
+
 }

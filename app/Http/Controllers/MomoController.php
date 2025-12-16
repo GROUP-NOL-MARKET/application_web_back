@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\Payment;
@@ -30,11 +31,44 @@ class MomoController extends Controller
 
         return $response->json()["access_token"];
     }
+
+
+    private function confirmPayment(Payment $payment, ?string $transactionId = null)
+    {
+        // Déjà traité → on sort
+        if ($payment->order_id !== null) {
+            return;
+        }
+
+        \DB::transaction(function () use ($payment, $transactionId) {
+
+            $payment->update([
+                'status' => 'validee',
+                'transaction_id' => $transactionId,
+            ]);
+
+            $order = Order::create([
+                'user_id' => $payment->user_id,
+                'reference' => $payment->reference_id,
+                'total' => $payment->amount,
+                'status' => 'validee',
+                'produits' => $payment->products,
+                'payment_status' => 'success',
+                'payment_reference' => $transactionId,
+            ]);
+
+            $payment->update([
+                'order_id' => $order->id
+            ]);
+        });
+    }
+
     public function pay(Request $request)
     {
         $request->validate([
             "amount" => "required|numeric",
             "phone" => "required|string",
+            "products"=>"required|array",
         ]);
 
         // Génération du token MTN
@@ -49,6 +83,7 @@ class MomoController extends Controller
             "reference_id" => $referenceId,
             "amount" => $request->amount,
             "phone" => $request->phone,
+            "products" => $request->products,
             "status" => "pending",
             "method" => "momo",
         ]);
@@ -60,16 +95,16 @@ class MomoController extends Controller
             "Ocp-Apim-Subscription-Key" => env("MTN_PRIMARY_KEY"),
             "Content-Type" => "application/json"
         ])->post("https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay", [
-            "amount" => $request->amount,
-            "currency" => "EUR",
-            "externalId" => $payment->id,
-            "payer" => [
-                "partyIdType" => "MSISDN",
-                "partyId" => $request->phone
-            ],
-            "payerMessage" => "Paiement Nol Market",
-            "payeeNote" => "Merci pour votre achat"
-        ]);
+                    "amount" => $request->amount,
+                    "currency" => "EUR",
+                    "externalId" => $payment->id,
+                    "payer" => [
+                        "partyIdType" => "MSISDN",
+                        "partyId" => $request->phone
+                    ],
+                    "payerMessage" => "Paiement Nol Market",
+                    "payeeNote" => "Merci pour votre achat"
+                ]);
 
         if (!$response->successful()) {
             $payment->status = "failed";
@@ -97,78 +132,55 @@ class MomoController extends Controller
         $referenceId = $request->referenceId;
         $status = strtoupper($request->status);
 
-        $payment = Payment::where("reference_id", $referenceId)->first();
+        $payment = Payment::where('reference_id', $referenceId)->first();
 
         if (!$payment) {
-            return response()->json(["message" => "Paiement introuvable"], 404);
+            return response()->json(['message' => 'Paiement introuvable'], 404);
         }
 
-        if ($status === "SUCCESSFUL") {
+        if ($status === 'SUCCESSFUL') {
+            $this->confirmPayment(
+                $payment,
+                $request->transactionId ?? null
+            );
 
-            // Mettre à jour le paiement
-            $payment->status = "validee";
-            $payment->transaction_id = $request->transactionId ?? null;
-            $payment->save();
-
-            // CRÉER LA COMMANDE ICI UNIQUEMENT
-            $order = Order::create([
-                "user_id" => $payment->user_id,
-                "total" => $payment->amount,
-                "status" => "payé",
-            ]);
-
-            // Attacher la commande au paiement
-            $payment->order_id = $order->id;
-            $payment->save();
-
-            return response()->json(["message" => "Paiement validé, commande créée"]);
+            return response()->json(['message' => 'Paiement validé']);
         }
 
-        // Si paiement non validé
-        $payment->status = "annulee";
-        $payment->save();
+        if (in_array($status, ['FAILED', 'CANCELLED'])) {
+            $payment->update(['status' => 'annulee']);
+        }
 
-        return response()->json(["message" => "Paiement refusé"]);
+        return response()->json(['message' => 'Paiement non validé']);
     }
 
     public function checkStatus($reference)
     {
-        $payment = Payment::where("reference_id", $reference)->firstOrFail();
+        $payment = Payment::where('reference_id', $reference)->firstOrFail();
 
         $token = $this->getAccessToken();
 
         $response = Http::withHeaders([
-            "Authorization" => "Bearer " . $token,
+            "Authorization" => "Bearer $token",
             "X-Target-Environment" => "sandbox",
             "Ocp-Apim-Subscription-Key" => env("MTN_PRIMARY_KEY")
         ])->get("https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay/$reference");
 
-        $status = strtoupper($response->json("status"));
+        $status = strtoupper($response->json('status'));
 
-        if ($status === "SUCCESSFUL") {
-
-            if ($payment->status !== "successful") {
-
-                // Mettre à jour le paiement
-                $payment->status = "validee";
-                $payment->transaction_id = $response->json("financialTransactionId");
-                $payment->save();
-
-                // Créer la commande
-                $order = Order::create([
-                    "user_id" => $payment->user_id,
-                    "amount" => $payment->amount,
-                    "status" => "payé",
-                ]);
-
-                $payment->order_id = $order->id;
-                $payment->save();
-            }
-        } elseif ($status === "FAILED") {
-            $payment->status = "annulee";
-            $payment->save();
+        if ($status === 'SUCCESSFUL') {
+            $this->confirmPayment(
+                $payment,
+                $response->json('financialTransactionId')
+            );
         }
 
-        return response()->json(["status" => $payment->status]);
+        if ($status === 'FAILED') {
+            $payment->update(['status' => 'annulee']);
+        }
+
+        return response()->json([
+            'status' => $payment->status
+        ]);
     }
 }

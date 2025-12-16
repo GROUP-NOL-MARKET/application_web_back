@@ -18,9 +18,9 @@ class PubliciteController extends Controller
 
         if (Publicite::count() === 0) {
             $defaults = [
-                'carousel_1.webp',
-                'carousel_2.avif',
-                'carousel_3.avif',
+                'Couv-1.avif',
+                'Couv-2.avif',
+                'Couv-3.avif',
             ];
 
             foreach ($defaults as $file) {
