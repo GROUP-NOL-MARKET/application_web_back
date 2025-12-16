@@ -28,7 +28,7 @@ class RecentViewController extends Controller
             'user_id' => $user->id,
             'product_id' => $request->product_id,
             'viewed_at' => Carbon::now(),
-            'expires_at' => Carbon::now()->addDays(14), // expire dans 2 semaines
+            'expires_at' => Carbon::now()->addDays(14),
         ]);
 
         return response()->json([

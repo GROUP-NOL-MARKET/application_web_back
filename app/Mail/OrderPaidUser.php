@@ -7,7 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class OrderPaidAdmin extends Mailable
+class OrderPaidUser extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -21,6 +21,6 @@ class OrderPaidAdmin extends Mailable
     public function build()
     {
         return $this->subject("Nouvelle commande payée #" . $this->order->id)
-            ->markdown('emails.orderPaid');
+            ->markdown('emails.orderPaidUser');
     }
 }

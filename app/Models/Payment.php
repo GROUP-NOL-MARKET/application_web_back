@@ -11,6 +11,7 @@ class Payment extends Model
         'user_id',
         'order_id',
         'transaction_id',
+        'products',
         'amount',
         'status',
         'method',
@@ -22,4 +23,6 @@ class Payment extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+     protected $casts = ['products' => 'array'];
 }

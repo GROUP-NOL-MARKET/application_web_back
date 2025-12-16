@@ -9,7 +9,7 @@ class RecentView extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'product_id'];
+    protected $fillable = ['user_id', 'product_id','viewed_at', 'expires_at'];
 
     public function user()
     {

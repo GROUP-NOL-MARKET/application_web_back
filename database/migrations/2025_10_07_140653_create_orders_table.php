@@ -32,6 +32,8 @@ return new class extends Migration
             $table->string('status')->default('en attente'); 
             // en attente | payé | annulé
 
+             $table->boolean('refund_requested')->default(false);
+
             $table->timestamps();
         });
     }
