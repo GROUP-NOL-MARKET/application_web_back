@@ -83,7 +83,7 @@ class ProductController extends Controller
     /**
      * Récupérer un nombre limité de produits d'une sous-catégorie
      */
-public function limited(Request $request)
+    public function limited(Request $request)
     {
         $category = $request->query('category');
         $limit = intval($request->query('limit', 10));
@@ -129,7 +129,18 @@ public function limited(Request $request)
     }
 
 
+    public function togglePopular($id)
+    {
+        $product = Product::findOrFail($id);
 
+        $product->is_popular = !$product->is_popular;
+        $product->save();
+
+        return response()->json([
+            'message' => 'Statut populaire mis à jour',
+            'is_popular' => $product->is_popular,
+        ]);
+    }
 
 
 

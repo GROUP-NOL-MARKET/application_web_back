@@ -72,6 +72,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/best-products', [ProductController::class, 'bestByCategory']);
         Route::put('/admins-info', [AdminController::class, 'update']);
         Route::get('/admins', [AdminController::class, 'me']);
+        Route::put('/products/{id}/toggle-popular', [ProductController::class, 'togglePopular']);
     });
 });
 
