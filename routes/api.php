@@ -67,8 +67,11 @@ Route::prefix('admin')->group(function () {
         Route::delete('/publicite/{id}', [PubliciteController::class, 'destroy']);
         Route::get('/payments', [PaymentController::class, 'index']);
         Route::post('/commandes/{id}/status', [OrderController::class, 'updateStatus']);
-        Route::post('/notifications', [NotifAdminController::class, 'Store']);
         Route::get('/notifications', [NotifAdminController::class, 'index']);
+        Route::post('/notifications/{message}/accept', [NotifAdminController::class, 'acceptRefund']);
+        Route::get('/best-products', [ProductController::class, 'bestByCategory']);
+        Route::put('/admins-info', [AdminController::class, 'update']);
+        Route::get('/admins', [AdminController::class, 'me']);
     });
 });
 
@@ -85,7 +88,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post("/momo/pay", [MomoController::class, "pay"]);
     Route::post('/moov/pay', [MoovmoneyController::class, 'pay']);
 
- 
+
     // Infos utilisateur
     Route::get('/user', [UserController::class, 'show']);   // récupérer infos user
     Route::put('/user/update', [UserController::class, 'update']); // mettre à jour infos user
@@ -125,7 +128,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
     Route::get('/orders/status/{status}', [OrderController::class, 'filterByStatus']);
     Route::post('/orders/{order}/refund-request', [OrderController::class, 'requestRefund']);
-    
+
 
 
 

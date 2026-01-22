@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\Message;
+use App\Models\NotifAdmin;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,7 +57,7 @@ class OrderController extends Controller
     public function dashboard()
     {
         // Récupération de toutes les commandes
-        $orders = Order::with('user')->latest()->get();
+        $orders = Order::with(['user', 'payment'])->latest()->get();
 
         // Statistiques globales
         $stats = [
@@ -127,17 +129,35 @@ class OrderController extends Controller
             'refund_requested' => true
         ]);
 
-        // Créer le message admin
+        // Créer le message utilisateur
         Message::create([
             'user_id' => \Auth::user()->id,
             'title' => "Remboursement demandé",
             'sender' => 'Système',
             'content' => "Demande de remboursement pour la commande n°{$order->reference} annulée",
         ]);
+        // Créer la notification admin
+        $admins = Admin::where('id', 1)->get();
+
+        foreach ($admins as $admin) {
+            NotifAdmin::create([
+                'admin_id' => $admin->id,
+                'title' => "Demande de remboursement",
+                'image' => $order->user_id,
+                'sender' => 'Système',
+                'content' => "Commande n°{$order->reference} – remboursement demandé",
+                'type' => 'refund',
+                'can_act' => true,
+                'related_id' => $order->id
+            ]);
+        }
+
+
+
+
 
         return response()->json([
             'message' => 'Demande de remboursement envoyée'
         ]);
     }
-
 }

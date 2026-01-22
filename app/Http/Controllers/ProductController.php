@@ -83,25 +83,52 @@ class ProductController extends Controller
     /**
      * Récupérer un nombre limité de produits d'une sous-catégorie
      */
-    public function limited(Request $request)
+public function limited(Request $request)
     {
-        $category = $request->query('category', null);
+        $category = $request->query('category');
         $limit = intval($request->query('limit', 10));
+        $popular = $request->boolean('popular');
 
-        if (!$category) {
+        $query = Product::query();
+
+        // PRODUITS POPULAIRES
+        if ($popular || strtoupper($category) === 'POPULAIRES') {
+            $query->where('is_popular', true);
+        }
+        // CATÉGORIE CLASSIQUE
+        elseif ($category) {
+            $query->whereRaw(
+                'LOWER(category) LIKE ?',
+                ['%' . strtolower($category) . '%']
+            );
+        } else {
             return response()->json([
-                'message' => "Le paramètre 'category' est requis."
+                'message' => "Le paramètre 'category' ou 'popular' est requis."
             ], 400);
         }
 
-        $products = Product::whereRaw('LOWER(category) LIKE ?', ['%' . strtolower($category) . '%'])
+        $products = $query
+            ->latest()
             ->limit($limit)
-            ->get();
+            ->get()
+            ->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'new_price' => $product->new_price,
+                    'image' => $product->image
+                        ? asset('storage/' . $product->image)
+                        : asset('placeholder.png'),
+                ];
+            });
 
         return response()->json([
             'data' => $products
         ]);
     }
+
+
 
 
 
@@ -175,5 +202,34 @@ class ProductController extends Controller
         $product->delete();
 
         return response()->json(['message' => 'Produit supprimé avec succès']);
+    }
+
+
+    public function bestByCategory(Request $request)
+    {
+        $limit = intval($request->query('limit', 3));
+
+        // Liste des catégories (tu peux aussi les récupérer depuis la DB)
+        $categories = [
+            'Produits Locaux',
+            'Electroménager',
+            'Epicerie',
+            'Boissons',
+            'Droguerie',
+            'Produits Frais',
+        ];
+
+        $result = [];
+
+        foreach ($categories as $category) {
+            $result[$category] = Product::where('category', $category)
+                ->orderBy('selled', 'desc')
+                ->limit($limit)
+                ->get();
+        }
+
+        return response()->json([
+            'data' => $result
+        ]);
     }
 }

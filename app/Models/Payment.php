@@ -16,6 +16,7 @@ class Payment extends Model
         'status',
         'method',
         "phone",
+        "email",
 
     ];
 

@@ -13,11 +13,16 @@ return new class extends Migration
     {
         Schema::create('notif_admins', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('admin_id')
+                ->constrained('admins')
+                ->cascadeOnDelete();
             $table->string('image');
-            $table->string('auteur')->nullable();
-            $table->integer('phone');
-            $table->string('message');
-            $table->time('temps');
+            $table->string('sender')->nullable();
+            $table->string('title');
+            $table->string('content');
+            $table->string('type');
+            $table->boolean('can_act');
+            $table->integer('related_id');
             $table->timestamps();
         });
     }

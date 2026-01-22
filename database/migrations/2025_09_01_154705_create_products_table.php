@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->string('family');
             $table->decimal('price', 10, 2);
             $table->string('category');
+            $table->boolean('is_popular')->default(false);
             $table->text('description')->nullable();
             $table->string('disponibility');
             $table->string('image')->nullable();

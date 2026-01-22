@@ -15,32 +15,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
-use Twilio\Rest\Client;
+use App\Services\FasterMessageService;
+
 
 class UserController extends Controller
 {
-    public function sendWelcomeSms($phone)
-    {
-        // Format correct : retirer le + si AT n’en veut pas
-        $cleanPhone = ltrim($phone, "+");
-
-        $AT = new \AfricasTalking\SDK\AfricasTalking(
-            env('AFRICASTALKING_USERNAME'),
-            env('AFRICASTALKING_API_KEY')
-        );
-
-        $sms = $AT->sms();
-
-        try {
-            $sms->send([
-                'to' => $cleanPhone,
-                'message' => "Bienvenue sur Nol Market 🛒 ! Votre inscription est confirmée.",
-                'from' => env('AFRICASTALKING_FROM')
-            ]);
-        } catch (\Exception $e) {
-            \Log::error("Erreur SMS Africa's Talking : " . $e->getMessage());
-        }
-    }
 
     public function register(Request $request)
     {
@@ -112,7 +91,10 @@ class UserController extends Controller
 
         if ($user->phone) {
             // L'utilisateur s'est inscrit avec son numéro
-            $this->sendWelcomeSms($user->phone);
+            app(FasterMessageService::class)->send(
+                $user->phone,
+                "Votre compte a été créé avec succès. Veuillez vous connecter prochainement avec vos identifiants. Nol Market vous remercie et vous souhaite la bienvenue. Info: 0165002800"
+            );
         }
 
 
@@ -228,12 +210,6 @@ class UserController extends Controller
             // Supprimer l'utilisateur (soft delete si Model utilise SoftDeletes sinon suppression réelle)
             $userId = $user->id;
 
-            // Si tu veux *vraiment* supprimer :
-            // $user->delete();
-
-            // Si tu veux garder un historique, utiliser softDeletes:
-            // $user->delete();
-
             // Ici on supprime réellement :
             $user->delete();
 
@@ -306,7 +282,7 @@ class UserController extends Controller
         }
     }
 
-    // ✅ Mise à jour de l'adresse
+    // Mise à jour de l'adresse
     public function updateAddress(Request $request)
     {
         try {
@@ -320,6 +296,11 @@ class UserController extends Controller
                     'max:200',
                     'regex:/^[A-Za-zÀ-ÖØ-öø-ÿ0-9\s,\'-]+$/',
                 ],
+                'phone' => [
+                    'required',
+                    'string',
+                    'regex:/^01(5[0-9]|[6-9][0-9])[0-9]{6}$/',
+                ],
             ]);
 
             if ($validated->fails()) {
@@ -328,6 +309,7 @@ class UserController extends Controller
 
             $user->update([
                 'addresse' => $request->addresse,
+                'phone' => $request->phone,
             ]);
 
             return response()->json([
@@ -400,7 +382,18 @@ class UserController extends Controller
         cache()->put('otp_' . $user->id, $otp, now()->addMinutes(1));
 
         // Envoyer le mail
-        Mail::to($user->email)->send(new \App\Mail\OtpMail($user, $otp));
+        if (!empty($payment->email)) {
+            Mail::to($user->email)->send(new \App\Mail\OtpMail($user, $otp));
+        }
+        // SMS
+        elseif (!empty($user->phone)) {
+
+            app(FasterMessageService::class)->send(
+                $user->phone,
+                "Voici votre code OTP pour modifier votre mot de passe : {{$otp}}. Ce code est valide pendant 1 minute. Si vous n’avez pas demandé cette action, ignorez simplement ce message. Info: 0165002800"
+            );
+        }
+
 
         return response()->json([
             'message' => 'Un code OTP a été envoyé à votre adresse email.',

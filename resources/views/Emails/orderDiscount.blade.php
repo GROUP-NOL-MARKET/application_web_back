@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Nouvelle commande payée</title>
+    <title>Commande remboursée</title>
     <style>
         body {
             font-family: Arial, Helvetica, sans-serif;
@@ -64,21 +64,19 @@
 </head>
 
 <body>
+    <div class="image">
+        <img src="{{ asset('image/Logo_entreprise-removebg-preview.png') }}" alt="entreprise" width="150" />
+    </div>
 
+    <hr />
     <div class="container">
-        <div class="image">
-            <img src="{{ asset('image/Logo_entreprise-removebg-preview.png') }}" alt="entreprise" width="150" />
-        </div>
+        <h1>Nouvelle commande remboursée</h1>
 
-        <hr />
-        <h1>Nouvelle commande payée</h1>
-
-        <p>Une nouvelle commande vient d'être validée.</p>
+        <p>Votre commande a été remboursée.</p>
 
         <h2>Informations client</h2>
         <p><strong>Nom :</strong> {{ $order->user->name }}</p>
         <p><strong>Téléphone paiement :</strong> {{ $order->payment->phone ?? '—' }}</p>
-        <p><strong>Référence de paiement :</strong> {{ $order->payment->transaction_id ?? '—' }}</p>
         <p><strong>Adresse :</strong> {{ $order->user->addresse }}</p>
 
         <h2>Produits</h2>
@@ -96,7 +94,10 @@
         <p class="total">Total payé : {{ $order->total }} FCFA</p>
 
         <div class="footer">
-            <p>Merci,<br>L’équipe système</p>
+            <p>
+                Group Nol Market vous remercie pour votre action et vous demande si vous voulez bien de donner votre avis par rapport à votre commande dans l'onglet commandes dans votre espace compte sur le site.
+                D'ici là vous pouvez continuer à effectuer vos achats sur notre plateforme.
+                Merci et à bientôt...</p>
         </div>
     </div>
 
