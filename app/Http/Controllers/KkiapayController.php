@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use App\Services\FasterMessageService;
 
 class KkiapayController extends Controller
 {
@@ -20,7 +21,7 @@ class KkiapayController extends Controller
             'transactionId' => 'required|string',
             'amount' => 'required|numeric',
             'cart' => 'required|array',
-            'phone' => 'required|string',
+            'phone' => 'nullable|string',
             'paymentData' => 'nullable|array'
         ]);
 
@@ -29,6 +30,9 @@ class KkiapayController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Utilisateur non authentifié'], 401);
         }
+
+
+        $email = $user->email ?? $request->paymentData['email'] ?? null;
 
         // Référence interne
         $reference = 'KKIA-' . strtoupper(uniqid());
@@ -49,7 +53,9 @@ class KkiapayController extends Controller
             'reference_id' => $reference,
             'user_id' => $user->id,
             'order_id' => $order->id,
+            'email' => $email,
             'transaction_id' => $request->transactionId,
+            'products' => json_encode($request->cart),
             'amount' => $request->amount,
             'status' => 'success',
             'method' => 'Kkiapay',
@@ -73,11 +79,24 @@ class KkiapayController extends Controller
             $product->save();
         }
 
+        $order->load(['user', 'payment']);
+
         // Email admin
-        // Mail::to("groupnolmarket@gmail.com")->send(new OrderPaidAdmin($order));
+        Mail::to("groupnolmarket@gmail.com")->send(new OrderPaidAdmin($order));
 
         //Email utilisateur
-        Mail::to($user->email)->send(new OrderPaidUser($order));
+          if (!empty($user->email)) {
+            Mail::to($user->email)
+                ->send(new OrderPaidUser($order));
+        }
+        // SMS
+        elseif (!empty($user->phone)) {
+
+            app(FasterMessageService::class)->send(
+                $user->phone,
+                "Votre commande n°{$order->reference} a été validée. Vous serez livrés d'ici peu et nous vous recommandons de suivre le statut de la commande dans le menu 'Mon compte' sur notre plateforme. Nol Market vous remercie pour votre achat. Info: 0165002800"
+            );
+        }
 
         return response()->json([
             'message' => 'Paiement validé et commande enregistrée',

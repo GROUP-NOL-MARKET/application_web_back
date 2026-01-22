@@ -15,6 +15,7 @@ class Product extends Model
         'family',
         'category',
         'sous_category',
+        'is_popular',
         'disponibility',
         'image',
         'quantity',
@@ -27,4 +28,8 @@ class Product extends Model
     {
         return $this->hasOne(ProductImage::class);
     }
+     protected $casts = [
+        'is_popular' => 'boolean',
+
+    ];
 }

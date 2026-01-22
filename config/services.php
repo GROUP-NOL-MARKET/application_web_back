@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'fastermessage' => [
+        'username' => env('FASTERMSG_USERNAME'),
+        'password' => env('FASTERMSG_PASSWORD'),
+        'sender' => env('FASTERMSG_SENDER', 'FASTERMSG'),
+        'token'    => env('FASTERMSG_TOKEN'),
+    ],
+
 ];

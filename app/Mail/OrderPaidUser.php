@@ -21,6 +21,6 @@ class OrderPaidUser extends Mailable
     public function build()
     {
         return $this->subject("Nouvelle commande payée #" . $this->order->id)
-            ->markdown('emails.orderPaidUser');
+            ->view('emails.orderPaidUser');
     }
 }

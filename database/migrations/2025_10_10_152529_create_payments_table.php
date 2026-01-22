@@ -29,6 +29,7 @@ return new class extends Migration {
 
             // Téléphone utilisé pour le paiement
             $table->string('phone')->nullable();
+            $table->string('email')->nullable();
 
             $table->string('method')->nullable();
 

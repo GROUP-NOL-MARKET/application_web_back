@@ -7,6 +7,11 @@
 </head>
 
 <body>
+    <div class="image">
+        <img src="{{ asset('image/Logo_entreprise-removebg-preview.png') }}" alt="entreprise" width="150" />
+    </div>
+
+    <hr />
     <h2>Bonjour {{ $name }},</h2>
     <p>Voici votre code OTP pour modifier votre mot de passe :</p>
     <h1 style="font-size: 24px; letter-spacing: 5px;">{{ $otp }}</h1>

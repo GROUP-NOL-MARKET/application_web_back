@@ -8,8 +8,12 @@ use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use App\Mail\OrderPaidAdmin;
+use App\Services\FasterMessageService;
+use App\Mail\OrderPaidUser;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 
 class MomoController extends Controller
 {
@@ -35,13 +39,11 @@ class MomoController extends Controller
 
     private function confirmPayment(Payment $payment, ?string $transactionId = null)
     {
-        // Déjà traité → on sort
-        if ($payment->order_id !== null) {
+        if ($payment->status === 'validee') {
             return;
         }
 
         \DB::transaction(function () use ($payment, $transactionId) {
-
             $payment->update([
                 'status' => 'validee',
                 'transaction_id' => $transactionId,
@@ -53,14 +55,33 @@ class MomoController extends Controller
                 'total' => $payment->amount,
                 'status' => 'validee',
                 'produits' => $payment->products,
-                'payment_status' => 'success',
-                'payment_reference' => $transactionId,
             ]);
 
-            $payment->update([
-                'order_id' => $order->id
-            ]);
+            $payment->update(['order_id' => $order->id]);
         });
+
+        // RECHARGEMENT PROPRE
+        $order = Order::with(['user', 'payment'])
+            ->where('id', $payment->order_id)
+            ->first();
+
+        // ADMIN
+        // Mail::to(config('mail.admin_address', 'groupnolmarket@gmail.com'))
+            // ->send(new OrderPaidAdmin($order));
+
+        // CLIENT
+        if (!empty($payment->email)) {
+            Mail::to($payment->email)
+                ->send(new OrderPaidUser($order));
+        }
+        // SMS
+        elseif (!empty($order->user?->phone)) {
+
+            app(FasterMessageService::class)->send(
+                $order->user->phone,
+                "Votre commande n°{$order->reference} a été validée. Vous serez livrés d'ici peu et nous vous recommandons de suivre le statut de la commande dans le menu 'Mon compte' sur notre plateforme. Nol Market vous remercie pour votre achat. Info: 0165002800"
+            );
+        }
     }
 
     public function pay(Request $request)
@@ -68,7 +89,7 @@ class MomoController extends Controller
         $request->validate([
             "amount" => "required|numeric",
             "phone" => "required|string",
-            "products"=>"required|array",
+            "products" => "required|array",
         ]);
 
         // Génération du token MTN
@@ -81,6 +102,7 @@ class MomoController extends Controller
         $payment = Payment::create([
             "user_id" => Auth::id(),
             "reference_id" => $referenceId,
+            "email" => Auth::user()?->email,
             "amount" => $request->amount,
             "phone" => $request->phone,
             "products" => $request->products,
@@ -95,16 +117,16 @@ class MomoController extends Controller
             "Ocp-Apim-Subscription-Key" => env("MTN_PRIMARY_KEY"),
             "Content-Type" => "application/json"
         ])->post("https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay", [
-                    "amount" => $request->amount,
-                    "currency" => "EUR",
-                    "externalId" => $payment->id,
-                    "payer" => [
-                        "partyIdType" => "MSISDN",
-                        "partyId" => $request->phone
-                    ],
-                    "payerMessage" => "Paiement Nol Market",
-                    "payeeNote" => "Merci pour votre achat"
-                ]);
+            "amount" => $request->amount,
+            "currency" => "EUR",
+            "externalId" => $payment->id,
+            "payer" => [
+                "partyIdType" => "MSISDN",
+                "partyId" => $request->phone
+            ],
+            "payerMessage" => "Paiement Nol Market",
+            "payeeNote" => "Merci pour votre achat"
+        ]);
 
         if (!$response->successful()) {
             $payment->status = "failed";
