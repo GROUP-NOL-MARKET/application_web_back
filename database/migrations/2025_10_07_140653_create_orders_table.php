@@ -29,10 +29,14 @@ return new class extends Migration
             $table->string('reference')->unique();
 
             // Status commande
-            $table->string('status')->default('en attente'); 
+            $table->string('status')->default('en attente');
             // en attente | payé | annulé
 
              $table->boolean('refund_requested')->default(false);
+
+             $table->string('payment_method')->nullable();
+    $table->text('delivery_address')->nullable();
+    $table->string('delivery_phone')->nullable();
 
             $table->timestamps();
         });

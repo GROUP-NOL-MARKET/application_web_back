@@ -12,6 +12,7 @@ class CreateCoverImagesTable extends Migration
             $table->id();
             $table->string('path'); // chemin dans storage
             $table->text('description')->nullable();
+            $table->text('link');
             $table->boolean('active')->default(false); // si doit apparaitre dans le carousel
             $table->timestamps();
         });

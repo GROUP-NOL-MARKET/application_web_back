@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CoverImage extends Model
 {
-    protected $fillable = ['path','description','active'];
+    protected $fillable = ['path','description','link','active'];
 
     protected $casts = [
         'active' => 'boolean',

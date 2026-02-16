@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\NotifAdminController;
 use Illuminate\Http\Request;
 use Illuminate\Session\Store;
 use Illuminate\Support\Facades\Route;
@@ -21,10 +20,12 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\BanniereController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\LivraisonController;
 use App\Http\Controllers\MoovmoneyController;
 use App\Http\Controllers\PubliciteController;
 use App\Http\Controllers\AdminStatsController;
 use App\Http\Controllers\CoverImageController;
+use App\Http\Controllers\NotifAdminController;
 use App\Http\Controllers\RecentViewController;
 use App\Http\Controllers\ClientsStatsController;
 
@@ -141,6 +142,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/messages/{id}', [MessageController::class, 'show']);
     Route::post('/messages', [MessageController::class, 'store']);
     Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
+
+    Route::post('/paiement/livraison', [LivraisonController::class, 'store']);
 
 
     Route::post('/payments/fedapay', [FedapayController::class, 'createTransaction']);

@@ -75,29 +75,44 @@
 
         <p>Une nouvelle commande vient d'être validée.</p>
 
-        <h2>Informations client</h2>
-        <p><strong>Nom :</strong> {{ $order->user->name }}</p>
-        <p><strong>Téléphone paiement :</strong> {{ $order->payment->phone ?? '—' }}</p>
-        <p><strong>Référence de paiement :</strong> {{ $order->payment->transaction_id ?? '—' }}</p>
-        <p><strong>Adresse :</strong> {{ $order->user->addresse }}</p>
+        <h3>Détails de la commande :</h3>
+        <ul>
+            <li><strong>Référence :</strong> {{ $order->reference }}</li>
+            <li><strong>Client :</strong> {{ $order->user->firstName }} {{ $order->user->lastName }}</li>
+            <li><strong>Montant :</strong> {{ number_format($order->total, 0, ',', ' ') }} FCFA</li>
+            <li><strong>Mode de paiement :</strong>
+                @if ($order->payment_method === 'livraison')
+                    <span style="color: orange; font-weight: bold;">PAIEMENT À LA LIVRAISON ⚠️</span>
+                @else
+                    {{ $order->payment->method ?? 'Non spécifié' }}
+                @endif
+            </li>
+            <li><strong>Statut paiement :</strong> {{ $order->payment_status }}</li>
+            @if ($order->delivery_address)
+                <li><strong>Adresse de livraison :</strong> {{ $order->delivery_address }}</li>
+            @endif
+            @if ($order->delivery_phone)
+                <li><strong>Téléphone livraison :</strong> {{ $order->delivery_phone }}</li>
+            @endif
 
-        <h2>Produits</h2>
+            @foreach ($order->produits as $item)
+                <div class="product">
+                    <p><strong>{{ $item['name'] }}</strong></p>
+                    <p>Quantité : {{ $item['quantity'] }}</p>
+                    <p>Prix unitaire : {{ $item['price'] }} FCFA</p>
+                    <p>Sous-total : {{ $item['price'] * $item['quantity'] }} FCFA</p>
+                </div>
+            @endforeach
 
-        @foreach ($order->produits as $item)
-        <div class="product">
-            <p><strong>{{ $item['name'] }}</strong></p>
-            <p>Quantité : {{ $item['quantity'] }}</p>
-            <p>Prix unitaire : {{ $item['price'] }} FCFA</p>
-            <p>Sous-total : {{ $item['price'] * $item['quantity'] }} FCFA</p>
-        </div>
-        @endforeach
+            <h2>Montant total</h2>
+            <p class="total">Total payé : {{ $order->total }} FCFA</p>
 
-        <h2>Montant total</h2>
-        <p class="total">Total payé : {{ $order->total }} FCFA</p>
+            <div class="footer">
+                <p>Merci,<br>L’équipe système</p>
+            </div>
+        </ul>
 
-        <div class="footer">
-            <p>Merci,<br>L’équipe système</p>
-        </div>
+
     </div>
 
 </body>

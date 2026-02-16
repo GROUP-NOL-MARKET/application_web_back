@@ -27,6 +27,7 @@ class CoverImageController extends Controller
                 CoverImage::create([
                     'path' => "defaults/$file",
                     'description' => "Image par défaut",
+                    'link' => "-",
                     'active' => true,
                 ]);
             }
@@ -36,6 +37,7 @@ class CoverImageController extends Controller
             return [
                 'id' => $img->id,
                 'description' => $img->description,
+                'link'=> $img->link,
                 'active' => $img->active,
                 'url' => asset("storage/{$img->path}"),
             ];
@@ -56,6 +58,7 @@ class CoverImageController extends Controller
             // 'mimes' vérifie l'extension/MIME côté PHP (jpg,jpeg,png,webp,avif)
             'image' => 'required|file|mimes:jpg,jpeg,png,webp,avif|max:5120',
             'description' => 'nullable|string',
+            'link'=> 'required|string',
             'active' => 'nullable|boolean'
         ]);
 
@@ -72,6 +75,7 @@ class CoverImageController extends Controller
             $ci = CoverImage::create([
                 'path' => $path,
                 'description' => $request->description,
+                'link'=> $request->link,
                 'active' => (bool) $request->active,
             ]);
 
@@ -81,6 +85,7 @@ class CoverImageController extends Controller
                     'id' => $ci->id,
                     'url' => asset("storage/{$ci->path}"),
                     'description' => $ci->description,
+                    'link' => $ci->link,
                     'active' => $ci->active,
                 ]
             ], 201);
@@ -115,5 +120,3 @@ class CoverImageController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 }
-
-

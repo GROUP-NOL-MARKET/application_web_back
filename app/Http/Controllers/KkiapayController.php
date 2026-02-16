@@ -21,7 +21,8 @@ class KkiapayController extends Controller
             'transactionId' => 'required|string',
             'amount' => 'required|numeric',
             'cart' => 'required|array',
-            'phone' => 'nullable|string',
+            'phone' => 'required|string',
+            'address' => 'required|string',  // Adresse de livraison
             'paymentData' => 'nullable|array'
         ]);
 
@@ -30,7 +31,6 @@ class KkiapayController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Utilisateur non authentifié'], 401);
         }
-
 
         $email = $user->email ?? $request->paymentData['email'] ?? null;
 
@@ -46,6 +46,9 @@ class KkiapayController extends Controller
             'status' => 'validee',
             'payment_status' => 'success',
             'payment_reference' => $request->transactionId,
+            'payment_method' => 'Kkiapay',
+            'delivery_address' => $request->address,
+            'delivery_phone' => $request->phone,
         ]);
 
         // Mise à jour des paiements
@@ -85,13 +88,11 @@ class KkiapayController extends Controller
         Mail::to("groupnolmarket@gmail.com")->send(new OrderPaidAdmin($order));
 
         //Email utilisateur
-          if (!empty($user->email)) {
-            Mail::to($user->email)
-                ->send(new OrderPaidUser($order));
+        if (!empty($user->email)) {
+            Mail::to($user->email)->send(new OrderPaidUser($order));
         }
         // SMS
         elseif (!empty($user->phone)) {
-
             app(FasterMessageService::class)->send(
                 $user->phone,
                 "Votre commande n°{$order->reference} a été validée. Vous serez livrés d'ici peu et nous vous recommandons de suivre le statut de la commande dans le menu 'Mon compte' sur notre plateforme. Nol Market vous remercie pour votre achat. Info: 0165002800"
@@ -103,57 +104,4 @@ class KkiapayController extends Controller
             'order_id' => $order->id
         ], 200);
     }
-
-
-
-    // public function paymentSuccess(Request $request)
-    // {
-    //     $request->validate([
-    //         'order_id' => 'required',
-    //         'status' => 'required|string',
-    //         'transaction_id' => 'required|string',
-    //     ]);
-
-    //     // Kkiapay renvoie "success" ou "successful"
-    //     if (!in_array(strtolower($request->status), ['success', 'successful'])) {
-    //         return response()->json(['message' => 'Paiement non confirmé'], 400);
-    //     }
-
-    //     // Récupération commande
-    //     $order = Order::findOrFail($request->order_id);
-
-    //     // Mise à jour commande
-    //     $order->status = 'validée';
-    //     $order->payment_status = 'success';
-    //     $order->payment_reference = $request->transaction_id;
-    //     $order->save();
-
-    //     // Produits du panier (JSON)
-    //     $products = $order->produits;
-
-    //     // Décrémentation du stock
-    //     foreach ($products as $item) {
-    //         $product = Product::find($item['id']);
-
-    //         if (!$product) {
-    //             continue; // Produit supprimé ou inexistant
-    //         }
-
-    //         if ($product->quantity < $item['quantity']) {
-    //             return response()->json([
-    //                 'message' => "Stock insuffisant pour " . $product->name
-    //             ], 400);
-    //         }
-
-    //         $product->quantity -= $item['quantity'];
-    //         $product->save();
-    //     }
-
-    //     // Envoi email admin
-    //     Mail::to("groupnolmarket@gmail.com")->send(new OrderPaidAdmin($order));
-
-    //     return response()->json([
-    //         'message' => 'Paiement validé, stock mis à jour et email envoyé'
-    //     ], 200);
-    // }
 }

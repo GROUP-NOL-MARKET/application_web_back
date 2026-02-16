@@ -10,7 +10,9 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'produits','refund_requested', 'reference', 'total', 'status'];
+    protected $fillable = ['user_id', 'produits','refund_requested', 'reference', 'total', 'status',  'payment_method',
+    'delivery_address',
+    'delivery_phone',];
 
     public function user()
     {
@@ -33,7 +35,7 @@ class Order extends Model
     }
 
     protected $casts = ['produits' => 'array','refund_requested' => 'boolean',];
-    
 
-    
+
+
 }
