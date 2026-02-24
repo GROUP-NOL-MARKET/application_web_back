@@ -118,8 +118,8 @@ class ProductController extends Controller
                     'price' => $product->price,
                     'new_price' => $product->new_price,
                     'image' => $product->image
-                        ? asset('storage/' . $product->image)
-                        : asset('placeholder.png'),
+                        // ? asset('storage/' . $product->image)
+                        // : asset('placeholder.png'),
                 ];
             });
 
