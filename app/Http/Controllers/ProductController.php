@@ -4,44 +4,140 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Cloudinary\Cloudinary;
+use Cloudinary\Api\Upload\UploadApi;
+use Cloudinary\Configuration\Configuration;
 
 class ProductController extends Controller
 {
-    /**
-     * Enregistrer un nouveau produit
-     */
+    // Instance Cloudinary réutilisable
+    private function cloudinary(): Cloudinary
+    {
+        return new Cloudinary(
+            Configuration::instance([
+                'cloud' => [
+                    'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                    'api_key'    => env('CLOUDINARY_API_KEY'),
+                    'api_secret' => env('CLOUDINARY_API_SECRET'),
+                ],
+                'url' => ['secure' => true]
+            ])
+        );
+    }
+
+    //  Nettoyer le nom du fichier pour Cloudinary
+    private function cleanPublicId(string $filename): string
+    {
+        return strtolower(
+            preg_replace('/[^a-zA-Z0-9_\-]/', '_',
+                preg_replace('/\s+/', '_',
+                    pathinfo($filename, PATHINFO_FILENAME)
+                )
+            )
+        );
+    }
+
     public function store(Request $request)
     {
-        //  Validation des données
         $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'reference' => 'nullable|string|max:255',
-            'price' => 'required|numeric',
-            'quantity' => 'nullable|integer',
-            'family' => 'required|string|max:255',
-            'category' => 'required|string|max:255',
+            'name'          => 'required|string|max:255',
+            'reference'     => 'nullable|string|max:255',
+            'price'         => 'required|numeric',
+            'quantity'      => 'nullable|integer',
+            'family'        => 'required|string|max:255',
+            'category'      => 'required|string|max:255',
             'sous_category' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description'   => 'nullable|string',
             'disponibility' => 'required|string|max:15',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image'         => 'nullable|image|mimes:jpeg,png,jpg,webp,avif|max:2048',
         ]);
 
-        // Gestion de l'image
         if ($request->hasFile('image')) {
-            $validatedData['image'] = $request->file('image')->store('products', 'public');
+            $filename  = $request->file('image')->getClientOriginalName();
+            $cleanName = $this->cleanPublicId($filename);
+
+            $result = $this->cloudinary()->uploadApi()->upload(
+                $request->file('image')->getRealPath(),
+                [
+                    'folder'    => 'products',
+                    'public_id' => $cleanName,
+                ]
+            );
+
+            $validatedData['image'] = $result['public_id'];
         }
-        $validatedData['selled'] === 0;
 
-        $validatedData['reste'] === 0;
+        $validatedData['selled'] = 0;
+        $validatedData['reste']  = 0;
 
-        // Création du produit
         $product = Product::create($validatedData);
 
         return response()->json([
             'message' => 'Produit créé avec succès',
             'product' => $product
         ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validatedData = $request->validate([
+            'name'          => 'required|string|max:255',
+            'reference'     => 'nullable|string|max:255',
+            'price'         => 'required|numeric',
+            'quantity'      => 'nullable|integer',
+            'family'        => 'required|string|max:255',
+            'category'      => 'required|string|max:255',
+            'sous_category' => 'required|string|max:255',
+            'description'   => 'nullable|string',
+            'disponibility' => 'required|string|max:15',
+            'image'         => 'nullable|file|mimes:jpeg,png,jpg,webp,avif|max:2048',
+        ]);
+
+        $product = Product::findOrFail($id);
+
+        if ($request->hasFile('image')) {
+            //  Supprimer l'ancienne image sur Cloudinary
+            if ($product->image && str_contains($product->image, 'products/')) {
+                $this->cloudinary()->uploadApi()->destroy($product->image);
+            }
+
+            $filename  = $request->file('image')->getClientOriginalName();
+            $cleanName = $this->cleanPublicId($filename);
+
+            $result = $this->cloudinary()->uploadApi()->upload(
+                $request->file('image')->getRealPath(),
+                [
+                    'folder'    => 'products',
+                    'public_id' => $cleanName,
+                ]
+            );
+
+            $validatedData['image'] = $result['public_id'];
+        }
+
+        $quantity = $validatedData['quantity'] ?? $product->quantity;
+        $validatedData['reste'] = $quantity - ($product->selled ?? 0);
+
+        $product->update($validatedData);
+
+        return response()->json([
+            'message' => 'Produit mis à jour avec succès',
+            'product' => $product
+        ]);
+    }
+
+    public function delete($id)
+    {
+        $product = Product::findOrFail($id);
+
+        //  Supprimer l'image sur Cloudinary
+        if ($product->image && str_contains($product->image, 'products/')) {
+            $this->cloudinary()->uploadApi()->destroy($product->image);
+        }
+
+        $product->delete();
+
+        return response()->json(['message' => 'Produit supprimé avec succès']);
     }
 
     /**
@@ -151,70 +247,6 @@ class ProductController extends Controller
     {
         return response()->json(Product::findOrFail($id));
     }
-
-    /**
-     * Mettre à jour un produit existant
-     */
-    public function update(Request $request, $id)
-    {
-        // Validation
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'reference' => 'nullable|string|max:255',
-            'price' => 'required|numeric',
-            'quantity' => 'nullable|integer',
-            'family' => 'required|string|max:255',
-            'category' => 'required|string|max:255',
-            'sous_category' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'disponibility' => 'required|string|max:15',
-            'image' => 'nullable|file|mimes:jpeg,png,jpg,webp,avif|max:2048',
-        ]);
-
-        $product = Product::findOrFail($id);
-
-        // Si une nouvelle image est envoyée
-        if ($request->hasFile('image')) {
-            // Supprime l’ancienne image si elle existe
-            if ($product->image && Storage::disk('public')->exists($product->image)) {
-                Storage::disk('public')->delete($product->image);
-            }
-
-            // Stocke la nouvelle image
-            $validatedData['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        $quantity = $validatedData['quantity'] ?? $product->quantity;
-        $selled = $product->selled ?? 0;
-
-        $validatedData['reste'] = $quantity - $selled;
-
-        // Mise à jour du produit
-        $product->update($validatedData);
-
-        return response()->json([
-            'message' => 'Produit mis à jour avec succès',
-            'product' => $product
-        ]);
-    }
-
-    /**
-     * Supprimer un produit
-     */
-    public function delete($id)
-    {
-        $product = Product::findOrFail($id);
-
-        // Supprimer aussi l’image si elle existe
-        if ($product->image && Storage::disk('public')->exists($product->image)) {
-            Storage::disk('public')->delete($product->image);
-        }
-
-        $product->delete();
-
-        return response()->json(['message' => 'Produit supprimé avec succès']);
-    }
-
 
     public function bestByCategory(Request $request)
     {

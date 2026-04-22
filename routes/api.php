@@ -1,37 +1,42 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Session\Store;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\MomoController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PromoController;
-use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\SearchController;
+use App\Http\Controllers\AdminStatsController;
+use App\Http\Controllers\Auth\SocialAuthController;
+use App\Http\Controllers\BanniereController;
+use App\Http\Controllers\ClientsStatsController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\CoverImageController;
+use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\FedapayController;
 use App\Http\Controllers\KkiapayController;
+use App\Http\Controllers\LivraisonController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MomoController;
+use App\Http\Controllers\MoovmoneyController;
+use App\Http\Controllers\NotifAdminController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\VoucherController;
-use App\Http\Controllers\BanniereController;
-use App\Http\Controllers\FavoriteController;
-use App\Http\Controllers\LivraisonController;
-use App\Http\Controllers\MoovmoneyController;
+use App\Http\Controllers\PromoController;
 use App\Http\Controllers\PubliciteController;
-use App\Http\Controllers\AdminStatsController;
-use App\Http\Controllers\CoverImageController;
-use App\Http\Controllers\NotifAdminController;
 use App\Http\Controllers\RecentViewController;
-use App\Http\Controllers\ClientsStatsController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VoucherController;
+use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 Route::post('/logout', [UserController::class, 'logout']);
+
+Route::prefix('auth/{provider}')->group(function () {
+    Route::get('redirect', [SocialAuthController::class, 'redirect']);
+    Route::get('callback', [SocialAuthController::class, 'callback']);
+});
+
 Route::post('/profil', [UserController::class, 'profil']);
 Route::get('/products/search', [SearchController::class, 'search']);
 Route::get('/banniere', [BanniereController::class, 'getBanner']);
