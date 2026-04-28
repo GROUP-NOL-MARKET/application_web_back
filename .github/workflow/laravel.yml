@@ -1,34 +1,75 @@
-name: Laravel CI
+name: CI Laravel
 
 on:
   push:
-    branches: ['main']
+    branches: [main, develop]
   pull_request:
+    branches: [main, develop]
 
 jobs:
-  laravel-tests:
+  laravel:
+    name: Tests Laravel
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: 8.2
+          extensions: mbstring, pdo, pdo_mysql, xml, bcmath, gd
+          coverage: none
 
-      - name: Install Composer dependencies
-        run: |
-          cd backend
-          composer install --no-progress --prefer-dist
+      - name: Copy .env.ci
+        run: cp .env.ci .env
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Generate app key
-        run: |
-          cd backend
-          cp .env.example .env
-          php artisan key:generate
+        run: php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: test_db
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: php artisan migrate --force
 
       - name: Run tests
-        run: |
-          cd backend
-          php artisan test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: test_db
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: php artisan test --stop-on-failure
+
+      - name: PHP Lint
+        run: find app routes config -name "*.php" | xargs php -l
