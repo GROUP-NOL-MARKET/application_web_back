@@ -20,6 +20,7 @@ return new class extends Migration {
             $table->string('secondName')->nullable(); // Deuxième prénom
             $table->string('addresse')->nullable();     // Adresse
             $table->string('genre')->nullable();
+                    $table->enum('role', ['user', 'admin'])->default('user')->after('email');
         });
     }
 
@@ -30,7 +31,7 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['lastName', 'firstName', 'phone', 'profil', 'dateNaissance', 'genre', 'secondName', 'addresse']);
+            $table->dropColumn(['lastName', 'firstName', 'phone', 'profil', 'dateNaissance', 'genre', 'secondName', 'addresse', 'role']);
         });
     }
 };

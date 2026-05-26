@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 use App\Models\Product;
 use Illuminate\Console\Command;
 use Cloudinary\Api\Upload\UploadApi;
+use Cloudinary\Api\Admin\AdminApi;
 use Cloudinary\Configuration\Configuration;
 
 class MigrateImagesToCloudinary extends Command
@@ -13,23 +14,21 @@ class MigrateImagesToCloudinary extends Command
 
     public function handle()
     {
-        // Vérifier la config Cloudinary avant tout
-        $this->info("🔧 Vérification config Cloudinary...");
+        $this->info("Initialisation Cloudinary...");
 
         $cloudName = env('CLOUDINARY_CLOUD_NAME');
         $apiKey    = env('CLOUDINARY_API_KEY');
         $apiSecret = env('CLOUDINARY_API_SECRET');
 
-        $this->info("   CLOUD_NAME : " . ($cloudName  ?: ' NON DÉFINI'));
-        $this->info("   API_KEY    : " . ($apiKey     ? ' OK' : ' NON DÉFINI'));
-        $this->info("   API_SECRET : " . ($apiSecret  ? ' OK' : ' NON DÉFINI'));
+        $this->info("   CLOUD_NAME : " . ($cloudName  ?: 'NON DÉFINI'));
+        $this->info("   API_KEY    : " . ($apiKey     ? 'OK' : 'NON DÉFINI'));
+        $this->info("   API_SECRET : " . ($apiSecret  ? 'OK' : 'NON DÉFINI'));
 
         if (!$cloudName || !$apiKey || !$apiSecret) {
-            $this->error(" Configuration Cloudinary incomplète. Arrêt.");
+            $this->error("Configuration incomplète. Arrêt.");
             return;
         }
 
-        //  Initialisation correcte du SDK officiel
         Configuration::instance([
             'cloud' => [
                 'cloud_name' => $cloudName,
@@ -40,6 +39,7 @@ class MigrateImagesToCloudinary extends Command
         ]);
 
         $uploadApi = new UploadApi();
+        $adminApi  = new AdminApi();
 
         $this->newLine();
 
@@ -47,68 +47,79 @@ class MigrateImagesToCloudinary extends Command
             ->where('image', 'not like', 'products/%')
             ->get();
 
-        $this->info(" {$products->count()} produits à migrer...");
+        $this->info("{$products->count()} produits à traiter...");
         $this->newLine();
 
-        $success = 0;
-        $failed  = 0;
+        $success  = 0;
+        $skipped  = 0;
+        $failed   = 0;
 
         foreach ($products as $product) {
-
-            //  Extraire le nom du fichier depuis l'URL complète
             $filename  = basename(urldecode($product->image));
             $localPath = storage_path('app/public/products/' . $filename);
 
+            $cleanName = strtolower(
+                preg_replace('/[^a-zA-Z0-9_\-]/', '_',
+                    preg_replace('/\s+/', '_',
+                        pathinfo($filename, PATHINFO_FILENAME)
+                    )
+                )
+            );
+
+            $publicId = 'products/' . $cleanName;
+
             $this->line("────────────────────────────────────────────");
-            $this->line(" Produit   : {$product->name}");
-            $this->line(" Image BDD : {$product->image}");
-            $this->line(" Fichier   : {$filename}");
-            $this->line(" Chemin    : {$localPath}");
-            $this->line(" Existe ?  : " . (file_exists($localPath) ? ' OUI' : ' NON'));
+            $this->line("Produit   : {$product->name}");
+            $this->line("Public ID : {$publicId}");
+
+            //Vérifie si l'image existe déjà sur Cloudinary
+            $existsOnCloudinary = false;
+            try {
+                $adminApi->asset($publicId);
+                $existsOnCloudinary = true;
+            } catch (\Exception $e) {
+                $existsOnCloudinary = false;
+            }
+
+            if ($existsOnCloudinary) {
+                // Image déjà sur Cloudinary — on met juste à jour la BDD
+                $this->warn("Déjà sur Cloudinary, mise à jour BDD uniquement");
+                $product->update(['image' => $publicId]);
+                $skipped++;
+                continue;
+            }
+
+            //  Image absente sur Cloudinary — on vérifie le fichier local
+            $this->line("Fichier local existe ? : " . (file_exists($localPath) ? 'OUI' : '❌ NON'));
 
             if (!file_exists($localPath)) {
-                $this->warn("  Fichier introuvable, on passe au suivant.");
+                $this->warn("Fichier introuvable localement, on passe.");
                 $failed++;
                 continue;
             }
 
+            //  Upload uniquement si absent
             try {
-                //  Nettoyer le nom : espaces → underscores, minuscules, sans caractères spéciaux
-                $cleanName = strtolower(
-                    preg_replace('/[^a-zA-Z0-9_\-]/', '_',
-                        preg_replace('/\s+/', '_',
-                            pathinfo($filename, PATHINFO_FILENAME)
-                        )
-                    )
-                );
-
-                $this->line(" Public ID cible : products/{$cleanName}");
                 $this->line(" Upload en cours...");
 
-                //  Upload via UploadApi (SDK officiel)
                 $result = $uploadApi->upload($localPath, [
                     'folder'    => 'products',
                     'public_id' => $cleanName,
                 ]);
 
-                //  La réponse est un array, on accède directement à public_id
-                $this->line(" Réponse reçue, clés : " . implode(', ', array_keys((array) $result)));
-
                 $publicId = $result['public_id'] ?? null;
 
                 if (!$publicId) {
-                    throw new \Exception("public_id absent dans la réponse Cloudinary");
+                    throw new \Exception("public_id absent dans la réponse");
                 }
 
-                //  Mettre à jour la BDD avec le public_id Cloudinary
-                $product->update(['image' => $publicId]);
-                $this->info(" Migré avec succès → {$publicId}");
+                $product->save(['image' => $publicId]);
+                $this->info("Uploadé → {$publicId}");
                 $success++;
 
             } catch (\Exception $e) {
-                $this->error(" Erreur   : " . $e->getMessage());
-                $this->error("   Ligne    : " . $e->getLine());
-                $this->error("   Fichier  : " . $e->getFile());
+                $this->error("Erreur   : " . $e->getMessage());
+                $this->error("Ligne   : " . $e->getLine());
                 $failed++;
             }
 
@@ -116,8 +127,9 @@ class MigrateImagesToCloudinary extends Command
         }
 
         $this->line("════════════════════════════════════════════");
-        $this->info(" Succès  : {$success}");
-        $this->warn(" Échecs  : {$failed}");
-        $this->info(" Migration terminée !");
+        $this->info("Uploadés  : {$success}");
+        $this->warn("Ignorés   : {$skipped} (déjà sur Cloudinary)");
+        $this->error("Échoués   : {$failed}");
+        $this->info("Migration terminée !");
     }
 }

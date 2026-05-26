@@ -78,6 +78,7 @@ class UserController extends Controller
             "email" => $validated["email"] ?? null,
             "phone" => $phone ?? null,
             "password" => bcrypt($validated["password"]),
+            "role" => 'user',
         ]);
 
         // Génération du token
@@ -101,7 +102,8 @@ class UserController extends Controller
         return response()->json([
             "message" => "Inscription réussie",
             "token" => $token,
-            "user" => $user
+            "user" => $user,
+            "role" => $user->role,
         ]);
     }
     public function login(Request $request)
@@ -162,6 +164,7 @@ class UserController extends Controller
             "message" => "Connexion réussie",
             "user" => $user,
             "token" => $token,
+            "role"=> $user->role,
         ], 200);
     }
 

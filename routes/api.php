@@ -26,6 +26,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoucherController;
+use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [UserController::class, 'register']);
@@ -44,9 +45,10 @@ Route::get('/bannieres', [BanniereController::class, 'index']);
 Route::get('/banniere/{id}', [BanniereController::class, 'show']);
 Route::post('/contact', [ContactController::class, 'store']);
 
+  Route::post('/admin/login', [AdminController::class, 'login']);
+Route::middleware(['jwt.auth', AdminMiddleware::class])
+->prefix('admin')->group(function () {
 
-Route::prefix('admin')->group(function () {
-    Route::post('/login', [AdminController::class, 'login']);
 
     Route::middleware('jwt.auth')->group(function () {
         Route::get('/stats', [AdminStatsController::class, 'index']);

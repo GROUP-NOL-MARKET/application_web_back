@@ -18,17 +18,17 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('jjXtLN26@')
-        ]);
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        //     'password' => Hash::make('jjXtLN26@')
+        // ]);
 
-        Admin::create([
-            'name' => 'Admin',
-            'email' => 'groupnol@market.com',
-            'password' => Hash::make('Nol229'),
-        ]);
+        // Admin::create([
+        //     'name' => 'Admin',
+        //     'email' => 'groupnol@market.com',
+        //     'password' => Hash::make('Nol229'),
+        // ]);
 
         // $this->call([
         //     MessageSeeder::class,
